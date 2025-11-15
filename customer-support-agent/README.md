@@ -1,277 +1,386 @@
-# Claude Customer Support Agent
+# UrbanStyle ID - AI Customer Support Chatbot
 
-An advanced, fully customizable customer support chat interface powered by Claude and leveraging Amazon Bedrock Knowledge Bases for knowledge retrieval.
-![preview](tutorial/preview.png)
+AI-powered customer support chatbot untuk platform e-commerce fashion Indonesia, menggunakan Claude AI dengan RAG (Retrieval-Augmented Generation) untuk memberikan respons yang akurat dan contextual.
 
-## Key Features
+## Features
 
--  AI-powered chat using Anthropic's Claude model
--  Amazon Bedrock integration for contextual knowledge retrieval
--  Real-time thinking & debug information display
--  Knowledge base source visualization
--  User mood detection & appropriate agent redirection
--  Highly customizable UI with shadcn/ui components
+- **Intelligent FAQ Response**: Menggunakan RAG dengan Pinecone vector database untuk mencari jawaban yang relevan
+- **Multilingual Support**: Otomatis mendeteksi dan merespons dalam bahasa Indonesia atau English
+- **Customer Mood Detection**: Mendeteksi mood customer (positive, neutral, negative, curious, frustrated, confused)
+- **Category Classification**: Mengklasifikasikan pertanyaan ke kategori support yang tepat
+- **Dual RAG Support**:
+  - Pinecone (default)
+  - AWS Bedrock Knowledge Base
+- **Real-time Embeddings**: Menggunakan Voyage AI untuk semantic search
+- **Human Agent Handoff**: Otomatis redirect ke human agent untuk kasus kompleks
 
-##  Getting Started
+## Tech Stack
 
-1. Clone this repository
-2. Install dependencies: `npm install`
-3. Set up your environment variables (see Configuration section)
-4. Run the development server: `npm run dev`
-5. Open [http://localhost:3000](http://localhost:3000) in your browser
+- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
+- **UI Components**: shadcn/ui, Radix UI
+- **AI/ML**:
+  - Claude AI (Anthropic) - Chat completion
+  - Voyage AI - Text embeddings
+  - Pinecone - Vector database
+  - AWS Bedrock - Alternative knowledge base
+- **Deployment**: AWS Amplify
 
-## ⚙️ Configuration
+## Prerequisites
 
-Create a `.env.local` file in the root directory with the following variables:
+Sebelum memulai, pastikan Anda memiliki:
 
+- Node.js >= 18.17.0
+- npm atau yarn
+- API Keys:
+  - [Anthropic API Key](https://console.anthropic.com/)
+  - [Voyage AI API Key](https://www.voyageai.com/)
+  - [Pinecone API Key](https://www.pinecone.io/)
+  - (Optional) AWS Bedrock access
+
+## Installation
+
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/HIIDAAYY/Anthropic-Chatbot.git
+cd Anthropic-Chatbot/customer-support-agent
 ```
-ANTHROPIC_API_KEY=your_anthropic_api_key
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+### 3. Setup Environment Variables
+
+Buat file `.env.local` di root directory:
+
+```bash
+# Anthropic API
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+
+# Voyage AI (for embeddings)
+VOYAGE_API_KEY=your_voyage_api_key_here
+
+# Pinecone (vector database)
+PINECONE_API_KEY=your_pinecone_api_key_here
+PINECONE_INDEX_NAME=your_pinecone_index_name
+PINECONE_ENVIRONMENT=us-east-1
+
+# AWS Bedrock (optional - for alternative RAG)
 BAWS_ACCESS_KEY_ID=your_aws_access_key
 BAWS_SECRET_ACCESS_KEY=your_aws_secret_key
+
+# OpenAI (optional)
+OPENAI_API_KEY=your_openai_api_key
 ```
 
-Note: We are adding a 'B' in front of the AWS environment variables for a reason that will be discussed later in the deployment section.
+### 4. Setup Pinecone Index
 
-##  How to Get Your Keys
+Buat Pinecone index dengan konfigurasi:
+- **Dimension**: 1024 (untuk Voyage AI `voyage-3` model)
+- **Metric**: cosine
+- **Cloud**: AWS
+- **Region**: us-east-1
 
-### Claude API Key
+### 5. Upload FAQ Data ke Pinecone
+
+```bash
+# Upload data FAQ ke Pinecone
+npx tsx scripts/upload-faq.ts
+```
+
+File FAQ ada di `urbanstyle_faq.md` - Anda bisa customize sesuai kebutuhan bisnis Anda.
+
+## Running the Project
+
+### Development Mode
+
+```bash
+# Full UI (dengan left & right sidebar)
+npm run dev
+
+# Chat only (tanpa sidebar)
+npm run dev:chat
+
+# Left sidebar only
+npm run dev:left
+
+# Right sidebar only
+npm run dev:right
+```
+
+Buka browser di [http://localhost:3000](http://localhost:3000)
+
+### Production Build
+
+```bash
+# Build production
+npm run build
+
+# Start production server
+npm start
+```
+
+## Project Structure
+
+```
+customer-support-agent/
+├── app/
+│   ├── api/
+│   │   └── chat/
+│   │       └── route.ts          # Main API endpoint untuk chat
+│   ├── lib/
+│   │   ├── utils.ts              # RAG retrieval logic (Pinecone & Bedrock)
+│   │   ├── cn.ts                 # Utility functions
+│   │   └── customer_support_categories.json
+│   └── page.tsx                  # Main page
+├── components/
+│   ├── ChatArea.tsx              # Chat UI component
+│   └── ui/                       # shadcn/ui components
+├── lib/
+│   ├── embeddings.ts             # Voyage AI embeddings
+│   ├── pinecone.ts               # Pinecone operations
+│   └── pinecone-examples.md      # Contoh usage
+├── scripts/
+│   ├── upload-faq.ts             # Upload FAQ ke Pinecone
+│   ├── test-pinecone.ts          # Test Pinecone connection
+│   ├── clear-pinecone.ts         # Clear Pinecone index
+│   └── search-payment.ts         # Test search queries
+├── urbanstyle_faq.md             # FAQ database
+├── .env.local                    # Environment variables (not in git)
+└── amplify.yml                   # AWS Amplify deployment config
+```
+
+## Available Scripts
+
+### Data Management
+
+```bash
+# Upload FAQ data
+npx tsx scripts/upload-faq.ts
+
+# Test Pinecone connection
+npx tsx scripts/test-pinecone.ts
+
+# Search test query
+npx tsx scripts/search-payment.ts
+
+# Clear all data dari Pinecone
+npx tsx scripts/clear-pinecone.ts
+
+# List all data di Pinecone
+npx tsx scripts/list-all-data.ts
+```
+
+### Development
+
+```bash
+# Lint code
+npm run lint
+
+# Build production
+npm run build
+```
+
+## Usage Examples
+
+### Basic Chat Query
+
+User mengirim pesan dalam bahasa Indonesia:
+```
+"Bagaimana cara pembayaran?"
+```
+
+Response dari chatbot:
+- Mencari context dari Pinecone menggunakan semantic search
+- Memberikan jawaban berdasarkan FAQ yang relevan
+- Mendeteksi mood customer
+- Memberikan suggested questions
+
+### Complex Query Requiring Human Agent
+
+User bertanya tentang order tracking spesifik:
+```
+"Dimana pesanan saya dengan nomor ORD12345?"
+```
+
+Chatbot akan:
+- Mendeteksi bahwa pertanyaan memerlukan akses ke account data
+- Set `redirect_to_agent: true`
+- Menyarankan untuk connect ke human customer service
+
+## API Response Format
+
+```typescript
+{
+  "id": "uuid",
+  "thinking": "Reasoning for the response",
+  "response": "Chatbot response text",
+  "user_mood": "positive|neutral|negative|curious|frustrated|confused",
+  "suggested_questions": ["Question 1?", "Question 2?", "Question 3?"],
+  "debug": {
+    "context_used": true|false
+  },
+  "matched_categories": ["category_id1", "category_id2"],
+  "redirect_to_agent": {
+    "should_redirect": boolean,
+    "reason": "Reason if redirecting"
+  }
+}
+```
+
+## Deployment
+
+### AWS Amplify
+
+Proyek ini sudah dikonfigurasi untuk deployment di AWS Amplify.
+
+1. Connect repository ke AWS Amplify
+2. Set environment variables di Amplify Console
+3. Deploy akan otomatis menggunakan `amplify.yml`
+
+### Environment Variables di Amplify
+
+Tambahkan di **Amplify Console → App Settings → Environment Variables**:
+- `ANTHROPIC_API_KEY`
+- `VOYAGE_API_KEY`
+- `PINECONE_API_KEY`
+- `PINECONE_INDEX_NAME`
+- `PINECONE_ENVIRONMENT`
+- `BAWS_ACCESS_KEY_ID` (optional)
+- `BAWS_SECRET_ACCESS_KEY` (optional)
+
+## Customization
+
+### Mengubah FAQ Content
+
+Edit file `urbanstyle_faq.md` kemudian re-upload:
+```bash
+npx tsx scripts/upload-faq.ts
+```
+
+### Mengganti Company/Brand
+
+Edit `app/api/chat/route.ts` line 138-225 untuk mengubah system prompt sesuai brand Anda.
+
+### Menambah Categories
+
+Edit `app/lib/customer_support_categories.json` untuk menambah kategori support.
+
+### Mengganti Embedding Model
+
+Edit `lib/embeddings.ts` untuk menggunakan model Voyage AI lain:
+- `voyage-3` (default) - 1024 dimensions
+- `voyage-3-lite` - 512 dimensions
+- `voyage-code-3` - untuk code search
+- `voyage-finance-2` - untuk financial docs
+- `voyage-law-2` - untuk legal docs
+
+## Monitoring & Logs
+
+Logs otomatis tersimpan di **AWS CloudWatch** jika deploy via Amplify:
+
+- Build logs: Amplify Console → Build tab
+- Runtime logs: CloudWatch → Log groups
+
+View logs di local development:
+```bash
+# Console logs akan muncul di terminal
+npm run dev
+```
+
+## Troubleshooting
+
+### RAG tidak mengembalikan hasil
+
+1. Cek Pinecone index sudah terisi data
+   ```bash
+   npx tsx scripts/list-all-data.ts
+   ```
+
+2. Verify API keys di `.env.local`
+
+3. Cek dimensi embedding match dengan Pinecone index (1024 for voyage-3)
+
+### Build error
+
+1. Clear cache:
+   ```bash
+   rm -rf .next node_modules
+   npm install
+   npm run build
+   ```
+
+2. Verify Node.js version >= 18.17.0
+
+### Pinecone connection error
+
+1. Verify `PINECONE_API_KEY` dan `PINECONE_INDEX_NAME`
+2. Cek region di `.env.local` match dengan Pinecone dashboard
+
+## How to Get Your API Keys
+
+### Anthropic API Key
 
 1. Visit [console.anthropic.com](https://console.anthropic.com/dashboard)
 2. Sign up or log in to your account
 3. Click on "Get API keys"
 4. Copy the key and paste it into your `.env.local` file
 
-### AWS Access Key and Secret Key
+### Voyage AI API Key
 
-Follow these steps to obtain your AWS credentials:
+1. Visit [www.voyageai.com](https://www.voyageai.com/)
+2. Sign up for an account
+3. Navigate to API keys section
+4. Generate a new API key
+5. Copy and paste into `.env.local`
 
-1. Log in to the AWS Management Console
-2. Navigate to the IAM (Identity and Access Management) dashboard
+### Pinecone API Key
 
-3. In the left sidebar, click on "Users"
+1. Visit [www.pinecone.io](https://www.pinecone.io/)
+2. Sign up and log in
+3. Create a new project
+4. Go to "API Keys" section
+5. Copy your API key and paste into `.env.local`
 
-4. Click "Create user" and follow the prompts to create a new user
-   ![Add User](tutorial/create-user.png)
-5. On the Set Permission page, select the "Attach policies directly" policy
-   ![Attach Policy](tutorial/attach.png)
-5. On the permissions page, use the "AmazonBedrockFullAccess" policy
-   ![Attach Policy](tutorial/bedrock.png)
-6. Review and create the user
-7. On the Summary page, click on Create access key.
-8. Then select "Application running on an AWS compute service". Add a description if desired, then click "Create".
-9. You will now see the Access Key ID and Secret Access Key displayed. Note that these keys are only visible once during creation, so be sure to save them securely.
-   ![Access Keys](tutorial/access-keys.png)
-8. Copy these keys and paste them into your `.env.local` file
+### AWS Bedrock (Optional)
 
-Note: Make sure to keep your keys secure and never share them publicly.
+Follow the IAM user creation process:
 
+1. Log in to AWS Management Console
+2. Navigate to IAM dashboard
+3. Create new user with "AmazonBedrockFullAccess" policy
+4. Generate access keys
+5. Copy to `.env.local`
 
-##  Amazon Bedrock RAG Integration
+## Contributing
 
-This project utilizes Amazon Bedrock for Retrieval-Augmented Generation (RAG). To set up:
+Contributions are welcome! Please:
 
-1. Ensure you have an AWS account with Bedrock access.
-2. Create a Bedrock knowledge base in your desired AWS region.
-3. Index your documents/sources in the knowledge base. For more info on that, check the "How to Create Your Own Knowledge Base" section.
-4. In `ChatArea.tsx`, update the `knowledgeBases` array with your knowledge base IDs and names:
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to branch (`git push origin feature/AmazingFeature`)
+5. Open Pull Request
 
-```typescript
-const knowledgeBases: KnowledgeBase[] = [
-  { id: "your-knowledge-base-id", name: "Your KB Name" },
-  // Add more knowledge bases as needed
-];
-```
+## License
 
-The application will use these knowledge bases for context retrieval during conversations.
+This project is part of [Anthropic Claude Quickstarts](https://github.com/anthropics/claude-quickstarts).
 
-### How to Create Your Own Knowledge Base
+## Resources
 
-To create your own knowledge base:
+- [Anthropic Documentation](https://docs.anthropic.com/)
+- [Voyage AI Documentation](https://docs.voyageai.com/)
+- [Pinecone Documentation](https://docs.pinecone.io/)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [shadcn/ui Components](https://ui.shadcn.com/)
 
-1. Go to your AWS Console and select Amazon Bedrock.
-2. In the left side menu, click on "Knowledge base" under "More".
+## Support
 
-3. Click on "Create knowledge base".
-   ![Create Knowledge Base](tutorial/create-knowledge-base.png)
-4. Give your knowledge base a name. You can leave "Create a new service role".
-5. Choose a source for your knowledge base. In this example, we'll use Amazon S3 storage service.
-   ![Choose Source](tutorial/choose-source.png)
+Untuk pertanyaan atau issues, silakan buat [GitHub Issue](https://github.com/HIIDAAYY/Anthropic-Chatbot/issues).
 
-   Note: If you're using the S3 storage service, you'll need to create a bucket first where you will upload your files. Alternatively, you can also upload your files after the creation of a knowledge base.
+---
 
-6. Click "Next".
-7. Choose a location for your knowledge base. This can be S3 buckets, folders, or even single documents.
-8. Click "Next".
-9. Select your preferred embedding model. In this case, we'll use Titan Text Embeddings 2.
-10. Select "Quick create a new vector store".
-11. Confirm and create your knowledge base.
-12. Once you have done this, get your knowledge base ID from the knowledge base overview.
-
-
-##  Switching Models
-
-This project supports multiple Claude models. To switch between models:
-
-1. In `ChatArea.tsx`, the `models` array defines available models:
-
-```typescript
-const models: Model[] = [
-  { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku" },
-  { id: "claude-3-5-sonnet-20240620", name: "Claude 3.5 Sonnet" },
-  // Add more models as needed
-];
-```
-
-2. The `selectedModel` state variable controls the currently selected model:
-
-```typescript
-const [selectedModel, setSelectedModel] = useState("claude-3-haiku-20240307");
-```
-
-3. To implement model switching in the UI, a dropdown component is used that updates the `selectedModel`.
-
-
-##  Customization
-
-This project leverages shadcn/ui components, offering a high degree of customization:
-
-* Modify the UI components in the `components/ui` directory
-* Adjust the theme in `app/globals.css`
-* Customize the layout and functionality in individual component files
-* Modify the theme colors and styles by editing the `styles/themes.js` file:
-
-```javascript
-// styles/themes.js
-export const themes = {
-  neutral: {
-    light: {
-      // Light mode colors for neutral theme
-    },
-    dark: {
-      // Dark mode colors for neutral theme
-    }
-  },
-  // Add more themes here
-};
-```
-You can add new themes or modify existing ones by adjusting the color values in this file.
-
-##  Deploy with AWS Amplify
-
-To deploy this application using AWS Amplify, follow these steps:
-
-1. Go to your AWS Console and select Amplify.
-2. Click on "Create new app" (image link to be added later).
-3. Select GitHub (or your preferred provider) as the source.
-4. Choose this repository.
-5. Edit the YAML file to contain:
-
-   ```yaml
-   version: 1
-   frontend:
-     phases:
-       preBuild:
-         commands:
-           - npm ci --cache .npm --prefer-offline
-       build:
-         commands:
-           - npm run build # Next.js build runs first
-           - echo "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY" >> .env
-           - echo "KNOWLEDGE_BASE_ID=$KNOWLEDGE_BASE_ID" >> .env
-           - echo "BAWS_ACCESS_KEY_ID=$BAWS_ACCESS_KEY_ID" >> .env
-           - echo "BAWS_SECRET_ACCESS_KEY=$BAWS_SECRET_ACCESS_KEY" >> .env
-     artifacts:
-       baseDirectory: .next
-       files:
-         - "**/*"
-     cache:
-       paths:
-         - .next/cache/**/*
-         - .npm/**/*
-   ```
-
-6. Choose to create a new service role or use an existing one. Refer to the "Service Role" section for more information.
-7. Click on "Advanced settings" and add your environmental variables:
-
-   ```
-   ANTHROPIC_API_KEY=your_anthropic_api_key
-   BAWS_ACCESS_KEY_ID=your_aws_access_key
-   BAWS_SECRET_ACCESS_KEY=your_aws_secret_key
-   ```
-   The reason we are adding a 'B' in front of the keys here is because AWS doesn't allow keys in Amplify to start with "AWS".
-
-8. Click "Save and deploy" to start the deployment process.
-
-Your application will now be deployed using AWS Amplify.
-
-
-### Service Role
-
-Once your application is deployed, if you selected to create a new service role:
-
-1. Go to your deployments page
-2. Select the deployment you just created
-3. Click on "App settings"
-4. Copy the Service role ARN
-5. Go to the IAM console and find this role
-6. Attach the "AmazonBedrockFullAccess" policy to the role
-
-This ensures that your Amplify app has the necessary permissions to interact with Amazon Bedrock.
-
-##  Customized Deployment and Development
-This project now supports flexible deployment and development configurations, allowing you to include or exclude specific components (left sidebar, right sidebar) based on your needs.
-Configuration
-The inclusion of sidebars is controlled by a config.ts file, which uses environment variables to set the configuration:
-```typescript
-typescriptCopytype Config = {
-  includeLeftSidebar: boolean;
-  includeRightSidebar: boolean;
-};
-
-const config: Config = {
-  includeLeftSidebar: process.env.NEXT_PUBLIC_INCLUDE_LEFT_SIDEBAR === "true",
-  includeRightSidebar: process.env.NEXT_PUBLIC_INCLUDE_RIGHT_SIDEBAR === "true",
-};
-
-export default config;
-```
-
-This configuration uses two environment variables:
-
-NEXT_PUBLIC_INCLUDE_LEFT_SIDEBAR: Set to "true" to include the left sidebar
-NEXT_PUBLIC_INCLUDE_RIGHT_SIDEBAR: Set to "true" to include the right sidebar
-
-## NPM Scripts
-The package.json includes several new scripts for different configurations:
-
-```bash
-npm run dev: Runs the full app with both sidebars (default)
-npm run build: Builds the full app with both sidebars (default)
-npm run dev:full: Same as npm run dev
-npm run dev:left: Runs the app with only the left sidebar
-npm run dev:right: Runs the app with only the right sidebar
-npm run dev:chat: Runs the app with just the chat area (no sidebars)
-npm run build:full: Same as npm run build
-npm run build:left: Builds the app with only the left sidebar
-npm run build:right: Builds the app with only the right sidebar
-npm run build:chat: Builds the app with just the chat area (no sidebars)
-```
-
-Usage
-To use a specific configuration:
-
-For development: Run the desired script (e.g., npm run dev:left)
-For production: Build with the desired script (e.g., npm run build:right)
-
-These scripts set the appropriate environment variables before running or building the application, allowing you to easily switch between different configurations.
-This flexibility allows you to tailor the application's layout to your specific needs, whether for testing, development, or production deployment.
-
-## Appendix
-
-This project is a prototype and is provided on an "as-is" basis. It is not intended for production use and may contain bugs, errors, or inconsistencies. By using this prototype, you acknowledge and agree that:
-- The software is provided in a pre-release, beta, or trial form.
-- It may not be suitable for production or mission-critical environments.
-- The developers are not responsible for any issues, data loss, or damages resulting from its use.
-- No warranties or guarantees of any kind are provided, either expressed or implied.
-- Support for this prototype may be limited or unavailable.
-- Use of this prototype is at your own risk. We encourage you to report any issues or provide feedback to help improve future versions.
+**Built with Claude AI** 🤖
