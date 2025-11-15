@@ -306,19 +306,21 @@ function ChatArea() {
   const [showAvatar, setShowAvatar] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [selectedKnowledgeBase, setSelectedKnowledgeBase] = useState(
-    "your-knowledge-base-id",
-  );
+
+  // Default to empty string = Pinecone (no knowledgeBaseId)
+  // Set to specific ID if you want to use AWS Bedrock instead
+  const [selectedKnowledgeBase, setSelectedKnowledgeBase] = useState("");
 
   const knowledgeBases: KnowledgeBase[] = [
-    { id: "your-knowledge-base-id", name: "Your KB Name" },
-    // Add more knowledge bases as needed
+    { id: "", name: "Pinecone (Default)" },
+    // Uncomment and add your AWS Bedrock knowledge base ID if needed
+    // { id: "your-bedrock-kb-id", name: "AWS Bedrock KB" },
   ];
 
   const models: Model[] = [
     { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku" },
     { id: "claude-haiku-4-5-20251001", name: "Claude 4.5 Haiku" },
-    { id: "claude-3-5-sonnet-20240620", name: "Claude 3.5 Sonnet" },
+    { id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet" },
   ];
 
   const scrollToBottom = () => {

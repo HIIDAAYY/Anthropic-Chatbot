@@ -3,8 +3,7 @@ import {
   RetrieveCommand,
   RetrieveCommandInput,
 } from "@aws-sdk/client-bedrock-agent-runtime";
-import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { queryPineconeWithText } from "@/lib/pinecone";
 
 console.log("🔑 Have AWS AccessKey?", !!process.env.BAWS_ACCESS_KEY_ID);
 console.log("🔑 Have AWS Secret?", !!process.env.BAWS_SECRET_ACCESS_KEY);
@@ -17,10 +16,6 @@ const bedrockClient = new BedrockAgentRuntimeClient({
   },
 });
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
 export interface RAGSource {
   id: string;
   fileName: string;
@@ -28,7 +23,55 @@ export interface RAGSource {
   score: number;
 }
 
-export async function retrieveContext(
+/**
+ * Retrieve context from Pinecone vector database
+ */
+export async function retrieveContextFromPinecone(
+  query: string,
+  n: number = 3,
+): Promise<{
+  context: string;
+  isRagWorking: boolean;
+  ragSources: RAGSource[];
+}> {
+  try {
+    console.log("🔍 Querying Pinecone with:", query);
+
+    // Query Pinecone
+    const results = await queryPineconeWithText(query, n);
+
+    // Parse Pinecone results
+    const ragSources: RAGSource[] = results.matches
+      .filter((match: any) => match.metadata?.text)
+      .map((match: any, index: number) => ({
+        id: match.id || `pinecone-${index}`,
+        fileName: match.metadata?.title || match.metadata?.category || "Knowledge Base",
+        snippet: match.metadata?.text || "",
+        score: match.score || 0,
+      }));
+
+    console.log("✅ Pinecone returned", ragSources.length, "results");
+
+    // Build context from results
+    const context = ragSources
+      .map((source) => source.snippet)
+      .join("\n\n");
+
+    return {
+      context,
+      isRagWorking: ragSources.length > 0,
+      ragSources,
+    };
+  } catch (error) {
+    console.error("❌ Pinecone RAG Error:", error);
+    return { context: "", isRagWorking: false, ragSources: [] };
+  }
+}
+
+/**
+ * Retrieve context from AWS Bedrock Knowledge Base
+ */
+export async function retrieveContextFromBedrock(
   query: string,
   knowledgeBaseId: string,
   n: number = 3,
@@ -76,7 +119,7 @@ export async function retrieveContext(
       })
       .slice(0, 1);
 
-    console.log("🔍 Parsed RAG Sources:", ragSources); // Debug log
+    console.log("🔍 Parsed Bedrock RAG Sources:", ragSources);
 
     const context = rawResults
       .filter((res: any) => res.content && res.content.text)
@@ -89,7 +132,31 @@ export async function retrieveContext(
       ragSources,
     };
   } catch (error) {
-    console.error("RAG Error:", error);
+    console.error("❌ Bedrock RAG Error:", error);
     return { context: "", isRagWorking: false, ragSources: [] };
   }
+}
+
+/**
+ * Main retrieve context function - auto-selects between Pinecone and Bedrock
+ * If knowledgeBaseId is provided, uses Bedrock. Otherwise uses Pinecone.
+ */
+export async function retrieveContext(
+  query: string,
+  knowledgeBaseId?: string,
+  n: number = 3,
+): Promise<{
+  context: string;
+  isRagWorking: boolean;
+  ragSources: RAGSource[];
+}> {
+  // Use Pinecone by default (if no knowledgeBaseId provided)
+  if (!knowledgeBaseId) {
+    console.log("📍 Using Pinecone for RAG");
+    return retrieveContextFromPinecone(query, n);
+  }
+
+  // Use Bedrock if knowledgeBaseId is provided
+  console.log("☁️ Using AWS Bedrock for RAG");
+  return retrieveContextFromBedrock(query, knowledgeBaseId, n);
 }
