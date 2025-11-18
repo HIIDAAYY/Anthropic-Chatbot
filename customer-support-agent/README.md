@@ -13,6 +13,9 @@ AI-powered customer support chatbot untuk platform e-commerce fashion Indonesia,
   - AWS Bedrock Knowledge Base
 - **Real-time Embeddings**: Menggunakan Voyage AI untuk semantic search
 - **Human Agent Handoff**: Otomatis redirect ke human agent untuk kasus kompleks
+- **WhatsApp Integration**: Terkoneksi dengan Twilio WhatsApp Business API untuk messaging real-time
+- **Suggested Questions**: Bot memberikan pertanyaan yang relevan untuk memandu customer
+- **Session Management**: Menjaga konteks percakapan customer dengan 30 menit session timeout
 
 ## Tech Stack
 
@@ -23,7 +26,8 @@ AI-powered customer support chatbot untuk platform e-commerce fashion Indonesia,
   - Voyage AI - Text embeddings
   - Pinecone - Vector database
   - AWS Bedrock - Alternative knowledge base
-- **Deployment**: AWS Amplify
+- **Messaging**: Twilio WhatsApp Business API
+- **Deployment**: Vercel (Serverless)
 
 ## Prerequisites
 
@@ -36,6 +40,9 @@ Sebelum memulai, pastikan Anda memiliki:
   - [Voyage AI API Key](https://www.voyageai.com/)
   - [Pinecone API Key](https://www.pinecone.io/)
   - (Optional) AWS Bedrock access
+- **For WhatsApp Integration**:
+  - [Twilio Account](https://www.twilio.com/) dengan WhatsApp Business API
+  - WhatsApp Business Account (via Meta/Facebook)
 
 ## Installation
 
@@ -74,6 +81,14 @@ BAWS_SECRET_ACCESS_KEY=your_aws_secret_key
 
 # OpenAI (optional)
 OPENAI_API_KEY=your_openai_api_key
+
+# Twilio WhatsApp (optional - for WhatsApp integration)
+TWILIO_ACCOUNT_SID=your_twilio_account_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_WHATSAPP_NUMBER=whatsapp:+your_twilio_number
+
+# Deployment
+NEXT_PUBLIC_BASE_URL=your_vercel_deployment_url
 ```
 
 ### 4. Setup Pinecone Index
@@ -129,11 +144,16 @@ npm start
 customer-support-agent/
 ├── app/
 │   ├── api/
-│   │   └── chat/
-│   │       └── route.ts          # Main API endpoint untuk chat
+│   │   ├── chat/
+│   │   │   └── route.ts          # Main API endpoint untuk chat
+│   │   └── whatsapp/
+│   │       └── webhook/
+│   │           └── route.ts      # Twilio WhatsApp webhook endpoint
 │   ├── lib/
 │   │   ├── utils.ts              # RAG retrieval logic (Pinecone & Bedrock)
 │   │   ├── cn.ts                 # Utility functions
+│   │   ├── twilio-client.ts      # Twilio WhatsApp client wrapper
+│   │   ├── whatsapp-session.ts   # WhatsApp conversation session management
 │   │   └── customer_support_categories.json
 │   └── page.tsx                  # Main page
 ├── components/
@@ -150,7 +170,8 @@ customer-support-agent/
 │   └── search-payment.ts         # Test search queries
 ├── urbanstyle_faq.md             # FAQ database
 ├── .env.local                    # Environment variables (not in git)
-└── amplify.yml                   # AWS Amplify deployment config
+├── amplify.yml                   # AWS Amplify deployment config (legacy)
+└── tsconfig.json                 # TypeScript configuration
 ```
 
 ## Available Scripts
@@ -231,19 +252,59 @@ Chatbot akan:
 }
 ```
 
+## WhatsApp Integration Setup
+
+Untuk mengintegrasikan WhatsApp Business API dengan chatbot:
+
+### 1. Setup Twilio Account
+
+1. Buat akun di [Twilio](https://www.twilio.com/)
+2. Upgrade ke production account
+3. Navigate ke **Messaging → Services**
+4. Create new Messaging Service untuk WhatsApp
+5. Request WhatsApp Business Account access via Meta
+
+### 2. Configure Webhook
+
+1. Di Twilio Messaging Service, buka **Integration** tab
+2. Set Webhook URL ke: `https://your-deployment-url.vercel.app/api/whatsapp/webhook`
+3. Save configuration
+
+### 3. Add Environment Variables
+
+Di **Vercel Dashboard → Settings → Environment Variables**, tambahkan:
+```
+TWILIO_ACCOUNT_SID=your_account_sid
+TWILIO_AUTH_TOKEN=your_auth_token
+TWILIO_WHATSAPP_NUMBER=whatsapp:+your_number
+NEXT_PUBLIC_BASE_URL=https://your-deployment-url.vercel.app
+```
+
+### 4. Deploy
+
+```bash
+npm run build
+vercel deploy --prod
+```
+
+### 5. Test
+
+Kirim WhatsApp message ke Twilio WhatsApp number Anda. Bot akan merespon dengan jawaban yang relevan berdasarkan FAQ database.
+
 ## Deployment
 
-### AWS Amplify
+### Vercel (Recommended)
 
-Proyek ini sudah dikonfigurasi untuk deployment di AWS Amplify.
+Proyek ini dioptimalkan untuk deployment di Vercel.
 
-1. Connect repository ke AWS Amplify
-2. Set environment variables di Amplify Console
-3. Deploy akan otomatis menggunakan `amplify.yml`
+1. Push repository ke GitHub
+2. Import ke [Vercel](https://vercel.com)
+3. Configure environment variables di Vercel Dashboard
+4. Deploy otomatis setiap push ke main branch
 
-### Environment Variables di Amplify
+### Environment Variables di Vercel
 
-Tambahkan di **Amplify Console → App Settings → Environment Variables**:
+Tambahkan di **Vercel Dashboard → Settings → Environment Variables**:
 - `ANTHROPIC_API_KEY`
 - `VOYAGE_API_KEY`
 - `PINECONE_API_KEY`
@@ -251,6 +312,14 @@ Tambahkan di **Amplify Console → App Settings → Environment Variables**:
 - `PINECONE_ENVIRONMENT`
 - `BAWS_ACCESS_KEY_ID` (optional)
 - `BAWS_SECRET_ACCESS_KEY` (optional)
+- `TWILIO_ACCOUNT_SID` (untuk WhatsApp)
+- `TWILIO_AUTH_TOKEN` (untuk WhatsApp)
+- `TWILIO_WHATSAPP_NUMBER` (untuk WhatsApp)
+- `NEXT_PUBLIC_BASE_URL` (deployment URL)
+
+### AWS Amplify (Legacy)
+
+Proyek ini juga support deployment ke AWS Amplify dengan `amplify.yml` config.
 
 ## Customization
 

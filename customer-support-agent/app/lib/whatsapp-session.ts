@@ -153,14 +153,20 @@ export function cleanupExpiredSessions(): number {
   const now = Date.now();
   let cleaned = 0;
 
-  for (const [phoneNumber, session] of sessions.entries()) {
+  const keysToDelete: string[] = [];
+
+  sessions.forEach((session, phoneNumber) => {
     const timeSinceLastActivity = now - session.lastActivity.getTime();
 
     if (timeSinceLastActivity > SESSION_TIMEOUT_MS) {
-      sessions.delete(phoneNumber);
-      cleaned++;
+      keysToDelete.push(phoneNumber);
     }
-  }
+  });
+
+  keysToDelete.forEach((key) => {
+    sessions.delete(key);
+    cleaned++;
+  });
 
   if (cleaned > 0) {
     console.log(`Cleaned up ${cleaned} expired sessions`);
@@ -174,15 +180,26 @@ export function cleanupExpiredSessions(): number {
  * @returns Object with session stats
  */
 export function getSessionStats() {
-  return {
-    totalSessions: sessions.size,
-    sessions: Array.from(sessions.entries()).map(([phoneNumber, session]) => ({
+  const sessionsList: Array<{
+    phoneNumber: string;
+    messageCount: number;
+    lastActivity: Date;
+    isActive: boolean;
+  }> = [];
+
+  sessions.forEach((session, phoneNumber) => {
+    sessionsList.push({
       phoneNumber,
       messageCount: session.messages.length,
       lastActivity: session.lastActivity,
       isActive:
         Date.now() - session.lastActivity.getTime() < SESSION_TIMEOUT_MS,
-    })),
+    });
+  });
+
+  return {
+    totalSessions: sessions.size,
+    sessions: sessionsList,
   };
 }
 

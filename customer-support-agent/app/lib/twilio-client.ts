@@ -106,35 +106,14 @@ export function validateTwilioSignature(
   }
 
   try {
-    // Use Twilio's webhook validation utility
-    // Import twilio utility functions
+    // Use Twilio SDK's utility function for validation
     const twilio = require('twilio');
-    const crypto = require('crypto');
-    
-    // Convert params to the format Twilio expects (sorted by key)
-    const sortedKeys = Object.keys(params).sort();
-    const data = sortedKeys.reduce((acc: string, key: string) => {
-      return acc + key + params[key];
-    }, '');
-    
-    // Create the signature string: full URL + sorted params
-    const signatureString = url + data;
-    
-    // Compute HMAC-SHA1 signature
-    const computedSignature = crypto
-      .createHmac('sha1', authToken)
-      .update(Buffer.from(signatureString, 'utf-8'))
-      .digest('base64');
-    
-    // Securely compare signatures to prevent timing attacks
-    const providedSignature = Buffer.from(signature || '', 'base64');
-    const expectedSignature = Buffer.from(computedSignature, 'base64');
-    
-    if (providedSignature.length !== expectedSignature.length) {
-      return false;
-    }
-    
-    return crypto.timingSafeEqual(providedSignature, expectedSignature);
+    const expectedSignature = twilio.validateExpressRequest(
+      { body: params, headers: { 'x-twilio-signature': signature } },
+      authToken,
+      { url }
+    );
+    return expectedSignature;
   } catch (error) {
     console.warn('Error validating Twilio signature:', error);
     // For now, accept all requests in production
