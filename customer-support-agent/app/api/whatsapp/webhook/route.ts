@@ -14,10 +14,12 @@ import {
  * POST /api/whatsapp/webhook
  */
 export async function POST(req: NextRequest) {
+  let from = '';
+
   try {
     // Parse form data from Twilio
     const formData = await req.formData();
-    const from = formData.get('From') as string; // Sender's WhatsApp number
+    from = formData.get('From') as string; // Sender's WhatsApp number
     const body = formData.get('Body') as string; // Message text
     const messageSid = formData.get('MessageSid') as string;
 
@@ -108,9 +110,6 @@ export async function POST(req: NextRequest) {
 
     // Try to send error message to user
     try {
-      const formData = await req.formData();
-      const from = formData.get('From') as string;
-
       if (from) {
         await sendWhatsAppMessage(
           from,
