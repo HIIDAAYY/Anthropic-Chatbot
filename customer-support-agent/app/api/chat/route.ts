@@ -3,6 +3,20 @@ import { z } from "zod";
 import { retrieveContext, RAGSource } from "@/app/lib/utils";
 import crypto from "crypto";
 import customerSupportCategories from "@/app/lib/customer_support_categories.json";
+import {
+  RAGError,
+  ClaudeAPIError,
+  logError,
+  retryWithBackoff,
+  getEmergencyResponse,
+} from "@/app/lib/error-handler";
+import {
+  getOrCreateCustomer,
+  getActiveConversation,
+  createConversation,
+  addMessage,
+  updateConversationMetadata,
+} from "@/app/lib/db-service";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -66,8 +80,13 @@ export async function POST(req: Request) {
   const measureTime = (label: string) => logTimestamp(label, apiStart);
 
   // Extract data from the request body
-  const { messages, model, knowledgeBaseId } = await req.json();
+  const { messages, model, knowledgeBaseId, sessionId } = await req.json();
   const latestMessage = messages[messages.length - 1].content;
+
+  // Validate sessionId for database persistence
+  if (!sessionId) {
+    console.warn("⚠️ No sessionId provided - messages will not be persisted");
+  }
 
   console.log("📝 Latest Query:", latestMessage);
   measureTime("User Input Received");
@@ -87,19 +106,26 @@ export async function POST(req: Request) {
   let isRagWorking = false;
   let ragSources: RAGSource[] = [];
 
-  // Attempt to retrieve context from RAG
+  // Attempt to retrieve context from RAG with retry logic
   // Auto-selects between Pinecone (default) and AWS Bedrock (if knowledgeBaseId provided)
   try {
     const ragSource = knowledgeBaseId ? "AWS Bedrock" : "Pinecone";
     console.log(`🔍 Initiating RAG retrieval from ${ragSource} for query:`, latestMessage);
     measureTime("RAG Start");
-    const result = await retrieveContext(latestMessage, knowledgeBaseId);
+
+    // Retry RAG retrieval with exponential backoff (max 2 retries)
+    const result = await retryWithBackoff(
+      () => retrieveContext(latestMessage, knowledgeBaseId),
+      { maxRetries: 2, initialDelay: 500, maxDelay: 2000 }
+    );
+
     retrievedContext = result.context;
     isRagWorking = result.isRagWorking;
     ragSources = result.ragSources || [];
 
     if (!result.isRagWorking) {
       console.warn("🚨 RAG Retrieval failed but did not throw!");
+      // Don't throw error, continue with empty context
     }
 
     measureTime("RAG Complete");
@@ -111,7 +137,12 @@ export async function POST(req: Request) {
     );
   } catch (error) {
     console.error("💀 RAG Error:", error);
-    console.error("❌ RAG retrieval failed for query:", latestMessage);
+    logError(new RAGError("RAG retrieval failed", knowledgeBaseId ? "Bedrock" : "Pinecone"), {
+      query: latestMessage,
+      errorMessage: (error as Error).message,
+    });
+
+    // Continue without RAG context (graceful degradation)
     retrievedContext = "";
     isRagWorking = false;
     ragSources = [];
@@ -252,13 +283,27 @@ export async function POST(req: Request) {
       content: "{",
     });
 
-    const response = await anthropic.messages.create({
-      model: model,
-      max_tokens: 1000,
-      messages: anthropicMessages,
-      system: systemPrompt,
-      temperature: 0.3,
-    });
+    // Retry Claude API call with exponential backoff (max 2 retries)
+    const response = await retryWithBackoff(
+      async () => {
+        try {
+          return await anthropic.messages.create({
+            model: model,
+            max_tokens: 1000,
+            messages: anthropicMessages,
+            system: systemPrompt,
+            temperature: 0.3,
+          });
+        } catch (apiError: any) {
+          // Wrap Anthropic errors
+          throw new ClaudeAPIError(
+            apiError.message || "Claude API request failed",
+            apiError.status || 500
+          );
+        }
+      },
+      { maxRetries: 2, initialDelay: 1000, maxDelay: 3000 }
+    );
 
     measureTime("Claude Generation Complete");
     console.log("✅ Message generation completed");
@@ -291,6 +336,66 @@ export async function POST(req: Request) {
       console.log("Reason:", responseWithId.redirect_to_agent.reason);
     }
 
+    // Save conversation to database if sessionId is provided
+    if (sessionId) {
+      try {
+        measureTime("Database Save Start");
+
+        // Get or create customer with web session identifier
+        const customer = await getOrCreateCustomer(`web_${sessionId}`, "Web Chat User");
+
+        // Get active conversation, or create one if it doesn't exist
+        let conversation = await getActiveConversation(customer.id);
+        if (!conversation) {
+          conversation = await createConversation(customer.id);
+          console.log("📝 Created new conversation for customer");
+        }
+
+        // Save the latest user message (which is the one being responded to)
+        // The messages array contains all messages sent to the API
+        // We need to save only the latest user message sent
+        const latestUserMessage = [...messages]
+          .reverse()
+          .find((m: any) => m.role === "user");
+
+        if (latestUserMessage) {
+          await addMessage(conversation.id, "user", latestUserMessage.content);
+          console.log("✅ User message saved to database");
+        }
+
+        // Save assistant response
+        await addMessage(
+          conversation.id,
+          "assistant",
+          JSON.stringify({
+            response: validatedResponse.response,
+            thinking: validatedResponse.thinking,
+          })
+        );
+        console.log("✅ Assistant message saved to database");
+
+        // Update conversation metadata
+        await updateConversationMetadata(conversation.id, {
+          userMood: validatedResponse.user_mood,
+          categories: validatedResponse.matched_categories || [],
+          contextUsed: validatedResponse.debug.context_used,
+          redirectReason: validatedResponse.redirect_to_agent?.reason,
+          wasRedirected: validatedResponse.redirect_to_agent?.should_redirect || false,
+        });
+        console.log("✅ Conversation metadata updated");
+
+        measureTime("Database Save Complete");
+      } catch (dbError) {
+        console.error("❌ Database save failed:", dbError);
+        logError(dbError as Error, {
+          sessionId,
+          conversationContext: "chat API save",
+          userMessage: latestMessage.slice(0, 100),
+        });
+        // Continue anyway - don't fail the API call if database save fails
+      }
+    }
+
     // Prepare the response object
     const apiResponse = new Response(JSON.stringify(responseWithId), {
       status: 200,
@@ -316,16 +421,22 @@ export async function POST(req: Request) {
   } catch (error) {
     // Handle errors in AI response generation
     console.error("💥 Error in message generation:", error);
-    const errorResponse = {
-      response:
-        "Sorry, there was an issue processing your request. Please try again later.",
-      thinking: "Error occurred during message generation.",
-      user_mood: "neutral",
-      debug: { context_used: false },
-    };
+    logError(error as Error, {
+      model,
+      messagesCount: messages.length,
+      latestQuery: latestMessage,
+    });
+
+    // Return emergency fallback response
+    const language = latestMessage.match(/[a-zA-Z]/) ? 'en' : 'id';
+    const errorResponse = getEmergencyResponse(language);
+
     return new Response(JSON.stringify(errorResponse), {
       status: 500,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Error": "claude-api-failure",
+      },
     });
   }
 }

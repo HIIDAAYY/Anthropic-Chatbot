@@ -1,0 +1,87 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Customer model - stores customer information
+model Customer {
+  id          String   @id @default(cuid())
+  phoneNumber String   @unique @map("phone_number")
+  name        String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  conversations Conversation[]
+
+  @@map("customers")
+}
+
+// Conversation model - tracks chat sessions
+model Conversation {
+  id         String              @id @default(cuid())
+  customerId String              @map("customer_id")
+  status     ConversationStatus  @default(ACTIVE)
+  startedAt  DateTime            @default(now()) @map("started_at")
+  endedAt    DateTime?           @map("ended_at")
+
+  // Relations
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  messages Message[]
+  metadata ConversationMetadata?
+
+  @@index([customerId])
+  @@index([status])
+  @@map("conversations")
+}
+
+// Message model - stores individual messages
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String       @map("conversation_id")
+  role           MessageRole
+  content        String       @db.Text
+  timestamp      DateTime     @default(now())
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([timestamp])
+  @@map("messages")
+}
+
+// ConversationMetadata model - stores analysis metadata
+model ConversationMetadata {
+  id               String   @id @default(cuid())
+  conversationId   String   @unique @map("conversation_id")
+  userMood         String?  @map("user_mood")
+  categories       String[] @default([])
+  redirectReason   String?  @map("redirect_reason") @db.Text
+  wasRedirected    Boolean  @default(false) @map("was_redirected")
+  contextUsed      Boolean  @default(false) @map("context_used")
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("conversation_metadata")
+}
+
+// Enums
+enum ConversationStatus {
+  ACTIVE
+  ENDED
+  REDIRECTED
+}
+
+enum MessageRole {
+  user
+  assistant
+}

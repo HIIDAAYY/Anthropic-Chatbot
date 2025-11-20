@@ -15,7 +15,9 @@ AI-powered customer support chatbot untuk platform e-commerce fashion Indonesia,
 - **Human Agent Handoff**: Otomatis redirect ke human agent untuk kasus kompleks
 - **WhatsApp Integration**: Terkoneksi dengan Twilio WhatsApp Business API untuk messaging real-time
 - **Suggested Questions**: Bot memberikan pertanyaan yang relevan untuk memandu customer
-- **Session Management**: Menjaga konteks percakapan customer dengan 30 menit session timeout
+- **Persistent Session Management**: PostgreSQL database untuk menyimpan conversation history
+- **Conversation Analytics**: Dashboard analytics untuk monitoring performa bot
+- **Error Handling & Fallback**: Graceful degradation dengan retry logic dan emergency responses
 
 ## Tech Stack
 
@@ -23,9 +25,11 @@ AI-powered customer support chatbot untuk platform e-commerce fashion Indonesia,
 - **UI Components**: shadcn/ui, Radix UI
 - **AI/ML**:
   - Claude AI (Anthropic) - Chat completion
-  - Voyage AI - Text embeddings
+  - OpenAI - Text embeddings
+  - Voyage AI - Alternative embeddings
   - Pinecone - Vector database
   - AWS Bedrock - Alternative knowledge base
+- **Database**: PostgreSQL (via Prisma ORM)
 - **Messaging**: Twilio WhatsApp Business API
 - **Deployment**: Vercel (Serverless)
 
@@ -61,37 +65,78 @@ npm install
 
 ### 3. Setup Environment Variables
 
-Buat file `.env.local` di root directory:
+Copy file `.env.example` ke `.env.local` dan isi dengan API keys Anda:
 
 ```bash
-# Anthropic API
+cp .env.example .env.local
+```
+
+Edit `.env.local` dengan API keys yang valid:
+
+```bash
+# AI & NLP APIs
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
 
-# Voyage AI (for embeddings)
-VOYAGE_API_KEY=your_voyage_api_key_here
-
-# Pinecone (vector database)
+# Vector Database (Pinecone)
 PINECONE_API_KEY=your_pinecone_api_key_here
-PINECONE_INDEX_NAME=your_pinecone_index_name
+PINECONE_INDEX_NAME=anthropicchatbot
 PINECONE_ENVIRONMENT=us-east-1
 
-# AWS Bedrock (optional - for alternative RAG)
-BAWS_ACCESS_KEY_ID=your_aws_access_key
-BAWS_SECRET_ACCESS_KEY=your_aws_secret_key
+# Relational Database (PostgreSQL)
+DATABASE_URL=postgresql://dev:devpassword@localhost:5433/urbanstyle_cs
 
-# OpenAI (optional)
-OPENAI_API_KEY=your_openai_api_key
-
-# Twilio WhatsApp (optional - for WhatsApp integration)
+# WhatsApp Integration
 TWILIO_ACCOUNT_SID=your_twilio_account_sid
 TWILIO_AUTH_TOKEN=your_twilio_auth_token
 TWILIO_WHATSAPP_NUMBER=whatsapp:+your_twilio_number
 
-# Deployment
-NEXT_PUBLIC_BASE_URL=your_vercel_deployment_url
+# Application Settings
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
 ```
 
-### 4. Setup Pinecone Index
+### 4. Setup PostgreSQL Database (NEW!)
+
+**IMPORTANT:** Project ini sekarang menggunakan PostgreSQL untuk persistent session storage dan conversation history logging.
+
+#### 4.1. Start PostgreSQL dengan Docker
+
+```bash
+# Start PostgreSQL container
+docker-compose up -d
+
+# Verify container is running
+docker ps
+```
+
+PostgreSQL akan berjalan di **port 5433** (bukan 5432) untuk menghindari konflik dengan PostgreSQL lokal yang mungkin sudah running.
+
+#### 4.2. Run Database Migrations
+
+```bash
+# Generate Prisma Client
+npx prisma generate
+
+# Run migrations
+npx prisma migrate dev
+
+# View database in browser (optional)
+npx prisma studio
+```
+
+#### 4.3. Test Database Connection
+
+```bash
+# Run test script
+npx tsx scripts/test-db-connection.ts
+```
+
+Jika berhasil, Anda akan melihat output:
+```
+✅ All tests passed! Database is working correctly! 🎉
+```
+
+### 5. Setup Pinecone Index
 
 Buat Pinecone index dengan konfigurasi:
 - **Dimension**: 1024 (untuk Voyage AI `voyage-3` model)
@@ -99,7 +144,7 @@ Buat Pinecone index dengan konfigurasi:
 - **Cloud**: AWS
 - **Region**: us-east-1
 
-### 5. Upload FAQ Data ke Pinecone
+### 6. Upload FAQ Data ke Pinecone
 
 ```bash
 # Upload data FAQ ke Pinecone

@@ -8,6 +8,16 @@ import {
   addUserMessage,
   addAssistantMessage,
 } from '@/app/lib/whatsapp-session';
+import {
+  updateConversationMetadata,
+  redirectConversation,
+} from '@/app/lib/db-service';
+import {
+  logError,
+  DatabaseError,
+  TwilioError,
+  getEmergencyResponse,
+} from '@/app/lib/error-handler';
 
 /**
  * WhatsApp Webhook - Receives incoming WhatsApp messages from Twilio
@@ -34,14 +44,14 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Bad Request', { status: 400 });
     }
 
-    // Get or create session for this phone number
-    const session = getSession(from);
+    // Get or create session for this phone number (now async)
+    const session = await getSession(from);
 
-    // Add user message to session
-    addUserMessage(from, body);
+    // Add user message to session (now async)
+    await addUserMessage(from, body);
 
     console.log(
-      `Session for ${from} has ${session.messages.length} messages`
+      `Session for ${from} has ${session.messages.length} messages. Conversation ID: ${session.conversationId}`
     );
 
     // Call existing chat API with session history
@@ -71,12 +81,49 @@ export async function POST(req: NextRequest) {
     const responseText = chatData.response || 'Maaf, terjadi kesalahan.';
     const suggestedQuestions = chatData.suggested_questions || [];
     const shouldRedirect = chatData.redirect_to_agent?.should_redirect || false;
+    const userMood = chatData.user_mood;
+    const categories = chatData.matched_categories || [];
+    const contextUsed = chatData.debug?.context_used || false;
 
-    // Add assistant message to session
-    addAssistantMessage(from, responseText);
+    // Add assistant message to session (now async)
+    await addAssistantMessage(from, responseText);
+
+    // Save conversation metadata to database
+    if (session.conversationId) {
+      try {
+        await updateConversationMetadata(session.conversationId, {
+          userMood,
+          categories,
+          contextUsed,
+          wasRedirected: shouldRedirect,
+          redirectReason: chatData.redirect_to_agent?.reason,
+        });
+        console.log(`Saved metadata for conversation ${session.conversationId}`);
+      } catch (metadataError) {
+        // Log but don't fail the request if metadata save fails
+        logError(metadataError as Error, {
+          conversationId: session.conversationId,
+          phoneNumber: from,
+        });
+      }
+    }
 
     // Send response via WhatsApp
     if (shouldRedirect) {
+      // Mark conversation as redirected in database
+      if (session.conversationId) {
+        try {
+          await redirectConversation(
+            session.conversationId,
+            chatData.redirect_to_agent?.reason || 'User requested human agent'
+          );
+        } catch (redirectError) {
+          logError(redirectError as Error, {
+            conversationId: session.conversationId,
+          });
+        }
+      }
+
       // Handle redirect to human agent
       const redirectMessage = `${responseText}\n\n🙋 *Butuh bantuan lebih lanjut?*\nTim customer service kami siap membantu Anda. Silakan hubungi kami melalui:\n📞 WhatsApp: +62 812-3456-7890\n📧 Email: support@urbanstyleid.com`;
 
@@ -107,17 +154,17 @@ export async function POST(req: NextRequest) {
     );
   } catch (error) {
     console.error('Error processing WhatsApp webhook:', error);
+    logError(error as Error, { from, messageBody: 'truncated for security' });
 
     // Try to send error message to user
     try {
       if (from) {
-        await sendWhatsAppMessage(
-          from,
-          'Maaf, terjadi kesalahan sistem. Mohon coba lagi dalam beberapa saat. 🙏'
-        );
+        const errorResponse = getEmergencyResponse('id');
+        await sendWhatsAppMessage(from, errorResponse.response);
       }
     } catch (sendError) {
       console.error('Failed to send error message:', sendError);
+      logError(sendError as Error, { from });
     }
 
     return new NextResponse(

@@ -304,6 +304,8 @@ function ChatArea() {
   const [showHeader, setShowHeader] = useState(false);
   const [selectedModel, setSelectedModel] = useState("claude-haiku-4-5-20251001");
   const [showAvatar, setShowAvatar] = useState(false);
+  const [sessionId, setSessionId] = useState<string>("");
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -326,6 +328,45 @@ function ChatArea() {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  // Initialize session and load conversation history
+  useEffect(() => {
+    const initializeSession = async () => {
+      // Get or create session ID from localStorage
+      let sid = localStorage.getItem("chatSessionId");
+      if (!sid) {
+        sid = crypto.randomUUID();
+        localStorage.setItem("chatSessionId", sid);
+        console.log("🆕 Created new session:", sid);
+      } else {
+        console.log("📱 Resumed session:", sid);
+      }
+      setSessionId(sid);
+
+      // Load conversation history from the API
+      try {
+        console.log("📚 Loading conversation history...");
+        const response = await fetch(`/api/conversation/history?sessionId=${sid}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.messages && data.messages.length > 0) {
+            console.log(`✅ Loaded ${data.messages.length} messages from database`);
+            setMessages(data.messages);
+          } else {
+            console.log("📭 No previous messages found");
+          }
+        } else {
+          console.warn("⚠️ Failed to load conversation history:", response.statusText);
+        }
+      } catch (error) {
+        console.error("❌ Error loading conversation history:", error);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    initializeSession();
+  }, []);
 
   useEffect(() => {
     console.log("🔍 Messages changed! Count:", messages.length);
@@ -453,6 +494,7 @@ function ChatArea() {
           messages: [...messages, userMessage],
           model: selectedModel,
           knowledgeBaseId: selectedKnowledgeBase,
+          sessionId: sessionId, // Pass session ID for database persistence
         }),
       });
 

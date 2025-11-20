@@ -1,17 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install:*)",
-      "Bash(npx tsx:*)",
-      "Bash(npm run dev:*)",
-      "Bash(timeout:*)",
-      "Bash(ping:*)",
-      "Bash(nul)",
-      "Bash(npm run build:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git push)",
-      "Bash(node -e \"\nconst https = require(''https'');\nhttps.get(''https://customer-support-agent-k00kmwh71-adits-projects-d86e9996.vercel.app/api/whatsapp/webhook'', (res) => {\n  let data = '''';\n  res.on(''data'', chunk => data += chunk);\n  res.on(''end'', () => console.log(''Status:'', res.statusCode, ''\\nResponse:'', data));\n}).on(''error'', (e) => console.error(''Error:'', e.message));\n\")"
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []
