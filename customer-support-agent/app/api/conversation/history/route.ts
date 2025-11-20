@@ -4,6 +4,8 @@
  * Returns the conversation history for a given session
  */
 
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from "next/server";
 import { getOrCreateCustomer, getActiveConversation } from "@/app/lib/db-service";
 import { prisma } from "@/app/lib/db-service";

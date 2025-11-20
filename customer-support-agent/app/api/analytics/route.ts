@@ -4,6 +4,8 @@
  * Returns conversation analytics and statistics
  */
 
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getDashboardData } from '@/app/lib/analytics-service';
 
