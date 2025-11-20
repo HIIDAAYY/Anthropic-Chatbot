@@ -342,7 +342,7 @@ export async function POST(req: Request) {
         measureTime("Database Save Start");
 
         // Get or create customer with web session identifier
-        const customer = await getOrCreateCustomer(`web_${sessionId}`, "Web Chat User");
+        const customer = await getOrCreateCustomer(`web_${sessionId}`);
 
         // Get active conversation, or create one if it doesn't exist
         let conversation = await getActiveConversation(customer.id);
