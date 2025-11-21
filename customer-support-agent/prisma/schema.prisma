@@ -68,9 +68,21 @@ model ConversationMetadata {
   wasRedirected    Boolean  @default(false) @map("was_redirected")
   contextUsed      Boolean  @default(false) @map("context_used")
 
+  // ===== PHASE 4: Notification Tracking Fields =====
+  notificationSentAt   DateTime?  @map("notification_sent_at")
+  notificationMethod   String?    @map("notification_method") // "email", "whatsapp", or "email,whatsapp"
+  notificationStatus   String?    @map("notification_status") // "pending", "sent", "failed"
+
+  // ===== PHASE 4: Resolution Tracking Fields =====
+  resolvedAt           DateTime?  @map("resolved_at")
+  resolvedBy           String?    @map("resolved_by") // Name of who resolved it
+  resolutionNotes      String?    @map("resolution_notes") @db.Text
+
   // Relations
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
+  @@index([wasRedirected])
+  @@index([notificationSentAt])
   @@map("conversation_metadata")
 }
 
