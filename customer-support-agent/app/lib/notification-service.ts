@@ -127,7 +127,7 @@ export async function notifyAgent(conversationId: string) {
     include: {
       customer: true,
       metadata: true,
-      messages: { take: 1, orderBy: { createdAt: 'desc' } },
+      messages: { take: 1, orderBy: { timestamp: 'desc' } },
     },
   });
 
