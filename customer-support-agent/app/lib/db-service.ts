@@ -354,3 +354,81 @@ export async function getDatabaseStats() {
     throw error;
   }
 }
+
+// ===== PHASE 4: NOTIFICATION & RESOLUTION FUNCTIONS =====
+
+/**
+ * Update notification tracking after sending notification to agent
+ */
+export async function updateNotificationStatus(
+  conversationId: string,
+  status: 'sent' | 'failed',
+  method: string // "email", "whatsapp", or "email,whatsapp"
+) {
+  try {
+    return await prisma.conversationMetadata.update({
+      where: { conversationId },
+      data: {
+        notificationSentAt: new Date(),
+        notificationStatus: status,
+        notificationMethod: method,
+      },
+    });
+  } catch (error) {
+    console.error('Error updating notification status:', error);
+    throw error;
+  }
+}
+
+/**
+ * Mark conversation as resolved by human agent
+ */
+export async function markConversationResolved(
+  conversationId: string,
+  resolvedBy: string,
+  resolutionNotes: string
+) {
+  try {
+    return await prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        status: ConversationStatus.ENDED,
+        metadata: {
+          update: {
+            resolvedAt: new Date(),
+            resolvedBy,
+            resolutionNotes,
+          },
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error marking conversation as resolved:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get all conversations pending agent action (redirected but not yet resolved)
+ */
+export async function getPendingConversations() {
+  try {
+    return await prisma.conversation.findMany({
+      where: {
+        status: ConversationStatus.REDIRECTED,
+        metadata: {
+          resolvedAt: null,
+        },
+      },
+      include: {
+        customer: true,
+        metadata: true,
+        messages: { take: 5, orderBy: { createdAt: 'desc' } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  } catch (error) {
+    console.error('Error getting pending conversations:', error);
+    throw error;
+  }
+}
