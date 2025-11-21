@@ -425,7 +425,7 @@ export async function getPendingConversations() {
         metadata: true,
         messages: { take: 5, orderBy: { timestamp: 'desc' } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { startedAt: 'desc' },
     });
   } catch (error) {
     console.error('Error getting pending conversations:', error);
