@@ -384,6 +384,29 @@ export async function POST(req: Request) {
         });
         console.log("✅ Conversation metadata updated");
 
+        // ===== PHASE 4: Notify agent if redirect is needed =====
+        if (responseWithId.redirect_to_agent?.should_redirect) {
+          const { notifyAgent } = await import("@/app/lib/notification-service");
+          const { updateNotificationStatus } = await import("@/app/lib/db-service");
+
+          try {
+            console.log("📤 Sending notification to agent...");
+            const { emailSent, whatsappSent } = await notifyAgent(conversation.id);
+
+            // Update notification tracking in database
+            const method = [emailSent && 'email', whatsappSent && 'whatsapp']
+              .filter(Boolean)
+              .join(',');
+            const status = emailSent || whatsappSent ? 'sent' : 'failed';
+
+            await updateNotificationStatus(conversation.id, status, method);
+            console.log(`✅ Agent notified via: ${method}`);
+          } catch (notificationError) {
+            console.error("❌ Failed to notify agent:", notificationError);
+          }
+        }
+        // ===== END PHASE 4 =====
+
         measureTime("Database Save Complete");
       } catch (dbError) {
         console.error("❌ Database save failed:", dbError);
