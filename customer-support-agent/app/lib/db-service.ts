@@ -423,7 +423,7 @@ export async function getPendingConversations() {
       include: {
         customer: true,
         metadata: true,
-        messages: { take: 5, orderBy: { createdAt: 'desc' } },
+        messages: { take: 5, orderBy: { timestamp: 'desc' } },
       },
       orderBy: { createdAt: 'desc' },
     });
