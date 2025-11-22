@@ -23,7 +23,7 @@ export async function sendAgentNotificationEmail(
   try {
     const adminLink = `${process.env.NEXT_PUBLIC_BASE_URL}/admin/conversations?key=${process.env.ADMIN_KEY}`;
 
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: 'Customer Support Bot <onboarding@resend.dev>',
       to: process.env.AGENT_EMAIL!,
       subject: '🚨 Customer Membutuhkan Bantuan Manual',
