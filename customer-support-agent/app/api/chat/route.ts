@@ -253,6 +253,22 @@ export async function POST(req: Request) {
       "reason": "Requires access to specific order details in customer account"
     }
   }
+
+  Example 4 - Question completely unrelated to UrbanStyle ID services:
+  {
+    "thinking": "Customer asking about Android app development which is completely unrelated to e-commerce, fashion, or UrbanStyle ID services. I should politely redirect to human agent.",
+    "response": "Halo! Sepertinya pertanyaan Anda tidak terkait dengan layanan UrbanStyle ID. Saya di sini untuk membantu Anda dengan pesanan, produk fashion, pembayaran, pengiriman, dan hal-hal lainnya yang berkaitan dengan belanja di UrbanStyle ID. Jika Anda memiliki pertanyaan tentang fashion atau belanja di platform kami, saya siap membantu!",
+    "user_mood": "neutral",
+    "suggested_questions": ["Bagaimana cara membuat akun UrbanStyle ID?", "Produk fashion apa yang sedang trending?", "Bagaimana cara melakukan pemesanan?"],
+    "debug": {
+      "context_used": false
+    },
+    "matched_categories": [],
+    "redirect_to_agent": {
+      "should_redirect": true,
+      "reason": "Question completely unrelated to UrbanStyle ID e-commerce services (asking about Android app development)"
+    }
+  }
   `
 
   function sanitizeAndParseJSON(jsonString : string) {
