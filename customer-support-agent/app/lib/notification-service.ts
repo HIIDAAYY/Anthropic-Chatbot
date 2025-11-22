@@ -1,15 +1,10 @@
 /**
  * Notification Service for Phase 4
- * Sends email & WhatsApp alerts to agents when customer needs manual help
+ * Sends email alerts to agents when customer needs manual help
  */
 import { Resend } from 'resend';
-import twilio from 'twilio';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
 
 /**
  * Send email notification to agent
@@ -86,68 +81,11 @@ export async function sendAgentNotificationEmail(
 }
 
 /**
- * Send WhatsApp notification to agent
- */
-export async function sendAgentNotificationWhatsApp(
-  conversationId: string,
-  customerName: string,
-  lastMessage: string,
-  redirectReason: string
-) {
-  try {
-    const adminLink = `${process.env.NEXT_PUBLIC_BASE_URL}/admin/conversations?key=${process.env.ADMIN_KEY}`;
-
-    // Truncate message if too long
-    const truncatedMessage = lastMessage.length > 100
-      ? lastMessage.slice(0, 100) + '...'
-      : lastMessage;
-
-    const message = `🚨 *Customer Butuh Bantuan*
-
-*Customer:* ${customerName}
-*Alasan:* ${redirectReason}
-
-*Pesan Terakhir:*
-"${truncatedMessage}"
-
-*Admin Panel:* ${adminLink}`;
-
-    const result = await twilioClient.messages.create({
-      from: process.env.TWILIO_WHATSAPP_NUMBER,
-      to: `whatsapp:${process.env.AGENT_WHATSAPP_NUMBER}`,
-      body: message,
-    });
-
-    console.log('✅ WhatsApp notification sent to', process.env.AGENT_WHATSAPP_NUMBER);
-    console.log('📱 Twilio Response:', JSON.stringify(result));
-    return true;
-  } catch (error) {
-    console.error('❌ WhatsApp notification failed:', error);
-    console.error('📱 WhatsApp Config:', {
-      from: process.env.TWILIO_WHATSAPP_NUMBER,
-      to: `whatsapp:${process.env.AGENT_WHATSAPP_NUMBER}`,
-      twilioSidDefined: !!process.env.TWILIO_ACCOUNT_SID,
-      twilioTokenDefined: !!process.env.TWILIO_AUTH_TOKEN,
-      twilioNumberDefined: !!process.env.TWILIO_WHATSAPP_NUMBER,
-      agentNumberDefined: !!process.env.AGENT_WHATSAPP_NUMBER,
-      agentNumberFormat: process.env.AGENT_WHATSAPP_NUMBER,
-    });
-
-    // Log full error details from Twilio
-    if (error && typeof error === 'object') {
-      console.error('📱 Twilio Error Details:', JSON.stringify(error, null, 2));
-    }
-
-    return false;
-  }
-}
-
-/**
- * Main function: Notify agent via all channels
+ * Main function: Notify agent via email
  * This is called when bot detects it can't help the customer
  */
 export async function notifyAgent(conversationId: string) {
-  console.log('📤 Sending agent notification for conversation:', conversationId);
+  console.log('📤 Sending email notification for conversation:', conversationId);
 
   // Get conversation details from database
   const { prisma } = await import('./db-service');
@@ -170,32 +108,19 @@ export async function notifyAgent(conversationId: string) {
   const redirectReason = conversation.metadata?.redirectReason || 'Unknown reason';
   const customerName = conversation.customer.name || 'Unknown';
 
-  // Send via both channels (parallel)
-  const [emailSent, whatsappSent] = await Promise.all([
-    sendAgentNotificationEmail(
-      conversationId,
-      customerName,
-      lastMessage,
-      redirectReason
-    ),
-    sendAgentNotificationWhatsApp(
-      conversationId,
-      customerName,
-      lastMessage,
-      redirectReason
-    ),
-  ]);
+  // Send notification via email only
+  const emailSent = await sendAgentNotificationEmail(
+    conversationId,
+    customerName,
+    lastMessage,
+    redirectReason
+  );
 
-  // Log results
-  const method = [emailSent && 'email', whatsappSent && 'whatsapp']
-    .filter(Boolean)
-    .join(',');
-
-  if (!emailSent && !whatsappSent) {
-    console.error('❌ All notification channels failed!');
+  if (emailSent) {
+    console.log('✅ Agent notified successfully via email');
   } else {
-    console.log(`✅ Agent notified successfully via: ${method}`);
+    console.error('❌ Email notification failed');
   }
 
-  return { emailSent, whatsappSent };
+  return { emailSent, whatsappSent: false };
 }
