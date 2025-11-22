@@ -27,7 +27,10 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
+.env
+.env.local
+.env.*.local
+.env.production.local
 
 # vercel
 .vercel
@@ -37,3 +40,32 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
+
+# Security: Sensitive configuration and credentials
+.env
+.env.local
+.env.*.local
+.env.production.local
+.aws/
+aws-credentials.json
+secrets.json
+*.pem
+*.key
+*.crt
+.ssh/
+
+# Sensitive logs and backups
+*.log
+*.backup
+*.bak
+debug.log
+lerna-debug.log*
+
+# IDE secrets
+.vscode/settings.json
+.idea/vcs.xml
+.DS_Store
+
+# OS specific files
+Thumbs.db
+.AppleDouble
