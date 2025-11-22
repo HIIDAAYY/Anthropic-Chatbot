@@ -401,6 +401,9 @@ export async function POST(req: Request) {
         console.log("✅ Conversation metadata updated");
 
         // ===== PHASE 4: Notify agent if redirect is needed =====
+        console.log("🔍 DEBUG - redirect_to_agent:", JSON.stringify(responseWithId.redirect_to_agent));
+        console.log("🔍 DEBUG - should_redirect value:", responseWithId.redirect_to_agent?.should_redirect);
+
         if (responseWithId.redirect_to_agent?.should_redirect) {
           const { notifyAgent } = await import("@/app/lib/notification-service");
           const { updateNotificationStatus } = await import("@/app/lib/db-service");
