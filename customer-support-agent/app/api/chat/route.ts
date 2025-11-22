@@ -395,8 +395,7 @@ export async function POST(req: Request) {
           userMood: validatedResponse.user_mood,
           categories: validatedResponse.matched_categories || [],
           contextUsed: validatedResponse.debug.context_used,
-          redirectReason: validatedResponse.redirect_to_agent?.reason,
-          wasRedirected: validatedResponse.redirect_to_agent?.should_redirect || false,
+          // Don't set redirectReason and wasRedirected here - will be set by redirectConversation()
         });
         console.log("✅ Conversation metadata updated");
 
@@ -405,10 +404,18 @@ export async function POST(req: Request) {
         console.log("🔍 DEBUG - should_redirect value:", responseWithId.redirect_to_agent?.should_redirect);
 
         if (responseWithId.redirect_to_agent?.should_redirect) {
+          const { redirectConversation } = await import("@/app/lib/db-service");
           const { notifyAgent } = await import("@/app/lib/notification-service");
           const { updateNotificationStatus } = await import("@/app/lib/db-service");
 
           try {
+            // CRITICAL FIX: Update conversation status to REDIRECTED
+            await redirectConversation(
+              conversation.id,
+              responseWithId.redirect_to_agent.reason || "User requested human assistance"
+            );
+            console.log("✅ Conversation status changed to REDIRECTED");
+
             console.log("📤 Sending notification to agent...");
             const { emailSent, whatsappSent } = await notifyAgent(conversation.id);
 

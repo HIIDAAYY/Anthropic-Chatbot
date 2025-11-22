@@ -64,9 +64,23 @@ export async function sendAgentNotificationEmail(
     });
 
     console.log('✅ Email notification sent to', process.env.AGENT_EMAIL);
+    console.log('📧 Resend API Response:', JSON.stringify(result));
     return true;
   } catch (error) {
     console.error('❌ Email notification failed:', error);
+    console.error('📧 Email Config:', {
+      from: 'onboarding@resend.dev',
+      to: process.env.AGENT_EMAIL,
+      agentEmailDefined: !!process.env.AGENT_EMAIL,
+      resendKeyDefined: !!process.env.RESEND_API_KEY,
+      resendKeyLength: process.env.RESEND_API_KEY?.length,
+    });
+
+    // Log full error details from Resend
+    if (error && typeof error === 'object') {
+      console.error('📧 Resend Error Details:', JSON.stringify(error, null, 2));
+    }
+
     return false;
   }
 }
@@ -98,16 +112,32 @@ export async function sendAgentNotificationWhatsApp(
 
 *Admin Panel:* ${adminLink}`;
 
-    await twilioClient.messages.create({
+    const result = await twilioClient.messages.create({
       from: process.env.TWILIO_WHATSAPP_NUMBER,
       to: `whatsapp:${process.env.AGENT_WHATSAPP_NUMBER}`,
       body: message,
     });
 
     console.log('✅ WhatsApp notification sent to', process.env.AGENT_WHATSAPP_NUMBER);
+    console.log('📱 Twilio Response:', JSON.stringify(result));
     return true;
   } catch (error) {
     console.error('❌ WhatsApp notification failed:', error);
+    console.error('📱 WhatsApp Config:', {
+      from: process.env.TWILIO_WHATSAPP_NUMBER,
+      to: `whatsapp:${process.env.AGENT_WHATSAPP_NUMBER}`,
+      twilioSidDefined: !!process.env.TWILIO_ACCOUNT_SID,
+      twilioTokenDefined: !!process.env.TWILIO_AUTH_TOKEN,
+      twilioNumberDefined: !!process.env.TWILIO_WHATSAPP_NUMBER,
+      agentNumberDefined: !!process.env.AGENT_WHATSAPP_NUMBER,
+      agentNumberFormat: process.env.AGENT_WHATSAPP_NUMBER,
+    });
+
+    // Log full error details from Twilio
+    if (error && typeof error === 'object') {
+      console.error('📱 Twilio Error Details:', JSON.stringify(error, null, 2));
+    }
+
     return false;
   }
 }
