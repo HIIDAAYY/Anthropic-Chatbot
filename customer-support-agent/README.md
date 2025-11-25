@@ -20,6 +20,52 @@ AI-powered customer support chatbot untuk platform e-commerce fashion Indonesia,
 - **Error Handling & Fallback**: Graceful degradation dengan retry logic dan emergency responses
 - **Admin Dashboard**: Web-based dashboard untuk managing pending conversations yang perlu agent attention
 - **Email Notifications**: Automatic email alerts via Resend ketika bot redirect ke human agent
+- **Native Tool Use API**: Bot tools menggunakan Anthropic's native Tool Use untuk real-time data:
+  - Order tracking dengan real-time shipping status
+  - Payment verification dengan akurat
+  - Inventory checking untuk real-time stock
+  - Order summary dan history
+
+## Bot Tools (Real-time Operations)
+
+Bot dilengkapi dengan native tool integration untuk real-time queries:
+
+### Available Tools
+
+1. **Track Order** (`track_order`)
+   - Get real-time shipping status dan tracking information
+   - Display estimated delivery date dan current location
+   - Contoh: "Mana pesanan saya ORD-2025-001?"
+
+2. **Verify Payment** (`verify_payment`)
+   - Check payment status untuk specific order
+   - Provide payment instructions jika belum dibayar
+   - Contoh: "Sudah terbayar belum pesanan ORD-2025-001?"
+
+3. **Check Inventory** (`check_inventory`)
+   - Check real-time stock availability
+   - Query multiple products at once
+   - Contoh: "Apakah Kaos Basic Crewneck tersedia?"
+
+4. **Get Order Summary** (`get_order_summary`)
+   - Get customer order history
+   - Display total spending dan order count
+   - Contoh: "Berapa total pesanan saya?"
+
+### Implementation Details
+
+- Tools menggunakan Anthropic's native Tool Use API
+- Real-time database queries via PostgreSQL
+- Automatic retry logic dengan exponential backoff
+- Comprehensive error handling dan fallbacks
+
+### Recent Fix (Nov 25, 2025)
+
+**Fixed Customer ID Mismatch Issue:**
+- ✅ All tools now consistently work with proper customer ID validation
+- ✅ Implemented secure customer data access pattern
+- ✅ All tools return formatted responses (not raw JSON)
+- See [`FIX_CUSTOMER_ID_MISMATCH.md`](FIX_CUSTOMER_ID_MISMATCH.md) untuk detail lengkap
 
 ## Tech Stack
 
