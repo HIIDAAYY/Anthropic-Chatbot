@@ -17,6 +17,12 @@ import {
   addMessage,
   updateConversationMetadata,
 } from "@/app/lib/db-service";
+import {
+  BOT_TOOLS,
+  extractToolUse,
+  executeToolUse,
+  formatToolResults,
+} from "@/app/lib/bot-tools";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -50,6 +56,7 @@ const responseSchema = z.object({
     context_used: z.boolean(),
   }),
   matched_categories: z.array(z.string()).optional(),
+  tools_used: z.array(z.string()).optional(),
   redirect_to_agent: z
     .object({
       should_redirect: z.boolean(),
@@ -184,27 +191,41 @@ export async function POST(req: Request) {
   - If a question requires personal account access, order tracking with specific order numbers, or complex issues, redirect to a human agent.
   - For general questions about fashion, style tips, or product recommendations, you can provide helpful guidance.
 
+  **Available Tools:**
+  You have access to tools for real-time information. When needed:
+  - Use "track_order" to get actual shipping status and tracking numbers
+  - Use "verify_payment" to check real payment status and provide payment instructions
+  - Use "check_inventory" to check product stock availability
+  - Use "get_order_summary" to show customer's order history and spending
+  - Use "cancel_order" to cancel pending orders (only PENDING or PROCESSING status)
+
   ${categoriesContext}
 
   If the question is completely unrelated to e-commerce, fashion, shopping, or UrbanStyle ID services, politely redirect the user to a human agent.
 
   You are the first point of contact for the user and should try to resolve their issue or provide relevant information. If you are unable to help the user or if the user explicitly asks to talk to a human, you can redirect them to a human agent for further assistance.
   
-  To display your responses correctly, you must format your entire response as a valid JSON object with the following structure:
+  **CRITICAL: Response Format**
+  You must return ONLY a raw JSON object. Do NOT wrap it in markdown code blocks or backticks.
+
+  Return the JSON object directly in this exact structure:
   {
       "thinking": "Brief explanation of your reasoning for how you should address the user's query",
-      "response": "Your concise response to the user",
+      "response": "Your response to the user (may include tool results or regular answer)",
       "user_mood": "positive|neutral|negative|curious|frustrated|confused",
       "suggested_questions": ["Question 1?", "Question 2?", "Question 3?"],
       "debug": {
         "context_used": true|false
       },
       ${USE_CATEGORIES ? '"matched_categories": ["category_id1", "category_id2"],' : ""}
+      "tools_used": ["tool_name1", "tool_name2"],
       "redirect_to_agent": {
         "should_redirect": boolean,
         "reason": "Reason for redirection (optional, include only if should_redirect is true)"
       }
     }
+
+  DO NOT use triple-backticks with "json" or any markdown code block formatting. Return ONLY the raw JSON object.
 
   Here are a few examples of how your response should look like:
 
@@ -294,24 +315,20 @@ export async function POST(req: Request) {
       content: msg.content,
     }));
 
-    anthropicMessages.push({
-      role: "assistant",
-      content: "{",
-    });
-
-    // Retry Claude API call with exponential backoff (max 2 retries)
-    const response = await retryWithBackoff(
+    // Initial API call with tools
+    let response = await retryWithBackoff(
       async () => {
         try {
+          console.log("🤖 Calling Claude API with tools...");
           return await anthropic.messages.create({
             model: model,
-            max_tokens: 1000,
+            max_tokens: 2000,
             messages: anthropicMessages,
             system: systemPrompt,
+            tools: BOT_TOOLS,
             temperature: 0.3,
           });
         } catch (apiError: any) {
-          // Wrap Anthropic errors
           throw new ClaudeAPIError(
             apiError.message || "Claude API request failed",
             apiError.status || 500
@@ -321,22 +338,107 @@ export async function POST(req: Request) {
       { maxRetries: 2, initialDelay: 1000, maxDelay: 3000 }
     );
 
+    console.log(`📊 Stop reason: ${response.stop_reason}`);
+
+    // Handle tool use if Claude requested it
+    if (response.stop_reason === "tool_use") {
+      console.log("🔧 Tool use detected, executing tools...");
+
+      // Extract tool use blocks
+      const toolUses = extractToolUse(response);
+      console.log(`📦 Found ${toolUses.length} tool(s) to execute`);
+
+      // Get or create customer for tool execution
+      // For demo purposes, use the seeded customer phone number
+      // In production, you'd use the logged-in user's actual phone number
+      const DEMO_PHONE = "081234567890";
+      const customer = await getOrCreateCustomer(DEMO_PHONE);
+
+      // Execute tools
+      const toolResults = await executeToolUse(toolUses, customer.id);
+
+      // Format tool results for API
+      const toolResultContent = formatToolResults(toolResults);
+
+      // Add assistant response and tool results to messages
+      const messagesWithTools: Anthropic.MessageParam[] = [
+        ...anthropicMessages,
+        {
+          role: "assistant",
+          content: response.content,
+        },
+        {
+          role: "user",
+          content: toolResultContent,
+        },
+      ];
+
+      // Call Claude again with tool results
+      console.log("🔄 Sending tool results back to Claude...");
+      response = await retryWithBackoff(
+        async () => {
+          try {
+            return await anthropic.messages.create({
+              model: model,
+              max_tokens: 2000,
+              messages: messagesWithTools,
+              system: systemPrompt,
+              tools: BOT_TOOLS,
+              temperature: 0.3,
+            });
+          } catch (apiError: any) {
+            throw new ClaudeAPIError(
+              apiError.message || "Claude API request failed",
+              apiError.status || 500
+            );
+          }
+        },
+        { maxRetries: 2, initialDelay: 1000, maxDelay: 3000 }
+      );
+
+      console.log("✅ Claude response with tool results received");
+    }
+
     measureTime("Claude Generation Complete");
     console.log("✅ Message generation completed");
 
     // Extract text content from the response
-    const textContent = "{" + response.content
-      .filter((block): block is Anthropic.TextBlock => block.type === "text")
-      .map((block) => block.text)
-      .join(" ");
+    const textBlocks = response.content.filter(
+      (block): block is Anthropic.TextBlock => block.type === "text"
+    );
 
-    // Parse the JSON response
+    if (textBlocks.length === 0) {
+      throw new Error("No text content in Claude response");
+    }
+
+    const textContent = textBlocks.map((block) => block.text).join("\n");
+
+    // Parse the response as JSON (Claude is instructed to return JSON)
     let parsedResponse;
     try {
-      parsedResponse = sanitizeAndParseJSON(textContent);
+      // Try to parse as JSON
+      if (textContent.trim().startsWith("{")) {
+        parsedResponse = sanitizeAndParseJSON(textContent);
+      } else {
+        // If not JSON, wrap response as simple text
+        parsedResponse = {
+          response: textContent,
+          thinking: "Response provided by Claude with tool results",
+          user_mood: "neutral" as const,
+          suggested_questions: [],
+          debug: { context_used: isRagWorking },
+        };
+      }
     } catch (parseError) {
       console.error("Error parsing JSON response:", parseError);
-      throw new Error("Invalid JSON response from AI");
+      // Fallback: return text as response
+      parsedResponse = {
+        response: textContent,
+        thinking: "Tool execution completed",
+        user_mood: "neutral" as const,
+        suggested_questions: [],
+        debug: { context_used: isRagWorking },
+      };
     }
 
     const validatedResponse = responseSchema.parse(parsedResponse);
@@ -357,8 +459,10 @@ export async function POST(req: Request) {
       try {
         measureTime("Database Save Start");
 
-        // Get or create customer with web session identifier
-        const customer = await getOrCreateCustomer(`web_${sessionId}`);
+        // Get or create customer with demo phone number
+        // For demo purposes, use the seeded customer phone number
+        const DEMO_PHONE = "081234567890";
+        const customer = await getOrCreateCustomer(DEMO_PHONE);
 
         // Get active conversation, or create one if it doesn't exist
         let conversation = await getActiveConversation(customer.id);

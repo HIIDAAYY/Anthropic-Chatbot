@@ -122,72 +122,44 @@ const MessageContent = ({
   content: string;
   role: string;
 }) => {
-  const [thinking, setThinking] = useState(true);
-  const [parsed, setParsed] = useState<{
-    response?: string;
-    thinking?: string;
-    user_mood?: string;
-    suggested_questions?: string[];
-    redirect_to_agent?: { should_redirect: boolean; reason: string };
-    debug?: {
-      context_used: boolean;
-    };
-  }>({});
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    if (!content || role !== "assistant") return;
-
-    const timer = setTimeout(() => {
-      setError(true);
-      setThinking(false);
-    }, 30000);
-
+  // Parse JSON immediately during render for assistant messages
+  if (role === "assistant") {
     try {
-      const result = JSON.parse(content);
-      console.log("🔍 Parsed Result:", result);
+      const parsed = JSON.parse(content);
 
-      if (
-        result.response &&
-        result.response.length > 0 &&
-        result.response !== "..."
-      ) {
-        setParsed(result);
-        setThinking(false);
-        clearTimeout(timer);
+      // Show thinking state if response is empty or placeholder
+      if (!parsed.response || parsed.response === "..." || parsed.response.length === 0) {
+        return (
+          <div className="flex items-center">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2" />
+            <span>Thinking...</span>
+          </div>
+        );
       }
+
+      // Render the actual response
+      return (
+        <>
+          <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeHighlight]}>
+            {parsed.response}
+          </ReactMarkdown>
+          {parsed.redirect_to_agent && parsed.redirect_to_agent.should_redirect && (
+            <UISelector redirectToAgent={parsed.redirect_to_agent} />
+          )}
+        </>
+      );
     } catch (error) {
-      console.error("Error parsing JSON:", error);
-      setError(true);
-      setThinking(false);
+      // If parsing fails, treat as plain text
+      return (
+        <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeHighlight]}>
+          {content}
+        </ReactMarkdown>
+      );
     }
-
-    return () => clearTimeout(timer);
-  }, [content, role]);
-
-  if (thinking && role === "assistant") {
-    return (
-      <div className="flex items-center">
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2" />
-        <span>Thinking...</span>
-      </div>
-    );
   }
 
-  if (error && !parsed.response) {
-    return <div>Something went wrong. Please try again.</div>;
-  }
-
-  return (
-    <>
-      <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeHighlight]}>
-        {parsed.response || content}
-      </ReactMarkdown>
-      {parsed.redirect_to_agent && (
-        <UISelector redirectToAgent={parsed.redirect_to_agent} />
-      )}
-    </>
-  );
+  // For user messages, render as-is
+  return <div>{content}</div>;
 };
 
 // Define a type for the model
@@ -703,15 +675,20 @@ function ChatArea() {
                       />
                     </div>
                   </div>
-                  {message.role === "assistant" && (
-                    <SuggestedQuestions
-                      questions={
-                        JSON.parse(message.content).suggested_questions || []
-                      }
-                      onQuestionClick={handleSuggestedQuestionClick}
-                      isLoading={isLoading}
-                    />
-                  )}
+                  {message.role === "assistant" && (() => {
+                    try {
+                      const parsed = JSON.parse(message.content);
+                      return (
+                        <SuggestedQuestions
+                          questions={parsed.suggested_questions || []}
+                          onQuestionClick={handleSuggestedQuestionClick}
+                          isLoading={isLoading}
+                        />
+                      );
+                    } catch {
+                      return null;
+                    }
+                  })()}
                 </div>
               ))}
               <div ref={messagesEndRef} style={{ height: "1px" }} />
