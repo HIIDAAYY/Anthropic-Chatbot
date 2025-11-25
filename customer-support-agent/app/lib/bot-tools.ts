@@ -113,33 +113,57 @@ export const BOT_TOOLS: Anthropic.Tool[] = [
 /**
  * Execute a bot action by calling the appropriate API endpoint
  */
+import { getShippingTracking } from "@/app/lib/shipping-service";
+import { getOrderByNumber, cancelOrder, getOrderSummary } from "@/app/lib/order-service";
+import { verifyPayment } from "@/app/lib/payment-service";
+import { checkMultipleProductsStock } from "@/app/lib/inventory-service";
+
+/**
+ * Execute a bot action by calling the appropriate service function directly
+ * This avoids HTTP fetch issues (405, network errors) within the same server
+ */
 export async function executeBotAction(action: BotAction): Promise<any> {
   const { tool, input } = action;
+  const { customerId, orderNumber, productIds, quantities, reason } = input;
 
   try {
-    let endpoint = "";
-    let method = "POST";
+    console.log(`🔧 Executing tool '${tool}' directly via service call`);
 
     switch (tool) {
       case "track_order":
-        endpoint = "/api/bot/order/track";
-        break;
+        if (!customerId || !orderNumber) {
+          return { success: false, error: "customerId dan orderNumber diperlukan" };
+        }
+        // Logic from /api/bot/order/track
+        const orderResult = await getOrderByNumber(customerId, orderNumber);
+        if (!orderResult.success) {
+          return { success: false, error: "Pesanan tidak ditemukan. Mohon periksa kembali nomor pesanan Anda." };
+        }
+        const trackingResult = await getShippingTracking(customerId, orderNumber);
+        if (!trackingResult.success) {
+          return {
+            success: false,
+            error: trackingResult.error || "Informasi pengiriman belum tersedia",
+            orderStatus: orderResult.order?.status
+          };
+        }
+        return {
+          success: true,
+          tracking: trackingResult.tracking,
+          orderStatus: orderResult.order?.status
+        };
 
       case "cancel_order":
-        endpoint = "/api/bot/order/cancel";
-        break;
+        return await cancelOrder(customerId, orderNumber, reason);
 
       case "get_order_summary":
-        endpoint = "/api/bot/order/summary";
-        break;
+        return await getOrderSummary(customerId);
 
       case "verify_payment":
-        endpoint = "/api/bot/payment/verify";
-        break;
+        return await verifyPayment(customerId, orderNumber);
 
       case "check_inventory":
-        endpoint = "/api/bot/inventory/check";
-        break;
+        return await checkMultipleProductsStock(productIds);
 
       default:
         return {
@@ -147,25 +171,6 @@ export async function executeBotAction(action: BotAction): Promise<any> {
           error: `Tool '${tool}' tidak dikenali`,
         };
     }
-
-    // Construct full URL for server-side fetch
-    // Prioritize env var, then Vercel auto-generated URL, then localhost
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
-      ? process.env.NEXT_PUBLIC_BASE_URL
-      : process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : 'http://localhost:3000';
-
-    const fullUrl = `${baseUrl}${endpoint}`;
-
-    const response = await fetch(fullUrl, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
-
-    const result = await response.json();
-    return result;
   } catch (error) {
     console.error(`Error executing bot action '${tool}':`, error);
     return {
