@@ -149,8 +149,13 @@ export async function executeBotAction(action: BotAction): Promise<any> {
     }
 
     // Construct full URL for server-side fetch
-    // Try ports 3000, 3001, 3002 in order of preference
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    // Prioritize env var, then Vercel auto-generated URL, then localhost
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
+      ? process.env.NEXT_PUBLIC_BASE_URL
+      : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000';
+
     const fullUrl = `${baseUrl}${endpoint}`;
 
     const response = await fetch(fullUrl, {

@@ -9,19 +9,23 @@ async function main() {
   // Phone number ini akan digunakan di web session untuk demo
   const DEMO_PHONE = "081234567890";
 
-  const customer = await prisma.customer.create({
-    data: {
+  const customer = await prisma.customer.upsert({
+    where: { phoneNumber: DEMO_PHONE },
+    update: {},
+    create: {
       phoneNumber: DEMO_PHONE,
       name: "Adi Mulyana",
     },
   });
 
-  console.log(`✅ Customer created: ${customer.name} (${customer.phoneNumber})`);
+  console.log(`✅ Customer ready: ${customer.name} (${customer.phoneNumber})`);
   console.log(`📱 Customer ID: ${customer.id}`);
 
   // Buat order
-  const order = await prisma.order.create({
-    data: {
+  const order = await prisma.order.upsert({
+    where: { orderNumber: "ORD-2025-001" },
+    update: {},
+    create: {
       orderNumber: "ORD-2025-001",
       customerId: customer.id,
       totalAmount: 150000,
@@ -69,28 +73,34 @@ async function main() {
   });
 
   // Buat inventory
-  await prisma.inventory.createMany({
-    data: [
-      {
-        productId: "KAOS-001",
-        productName: "Kaos Basic Crewneck",
-        quantity: 50,
-        warehouseLocation: "Jakarta",
-      },
-      {
-        productId: "CELANA-001",
-        productName: "Celana Chino Slim Fit",
-        quantity: 30,
-        warehouseLocation: "Jakarta",
-      },
-      {
-        productId: "DRESS-001",
-        productName: "Dress Midi Floral",
-        quantity: 0,
-        warehouseLocation: "Jakarta",
-      },
-    ],
-  });
+  const inventoryItems = [
+    {
+      productId: "KAOS-001",
+      productName: "Kaos Basic Crewneck",
+      quantity: 50,
+      warehouseLocation: "Jakarta",
+    },
+    {
+      productId: "CELANA-001",
+      productName: "Celana Chino Slim Fit",
+      quantity: 30,
+      warehouseLocation: "Jakarta",
+    },
+    {
+      productId: "DRESS-001",
+      productName: "Dress Midi Floral",
+      quantity: 0,
+      warehouseLocation: "Jakarta",
+    },
+  ];
+
+  for (const item of inventoryItems) {
+    await prisma.inventory.upsert({
+      where: { productId: item.productId },
+      update: { quantity: item.quantity },
+      create: item,
+    });
+  }
 
   console.log("\n✅ Seed data created successfully!");
   console.log("=" .repeat(60));

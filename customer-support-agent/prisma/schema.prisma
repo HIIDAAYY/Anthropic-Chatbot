@@ -20,6 +20,7 @@ model Customer {
 
   // Relations
   conversations Conversation[]
+  orders        Order[]
 
   @@map("customers")
 }
@@ -86,6 +87,104 @@ model ConversationMetadata {
   @@map("conversation_metadata")
 }
 
+// Order model - stores customer orders
+model Order {
+  id                String       @id @default(cuid())
+  orderNumber       String       @unique @map("order_number") // e.g., "ORD-2025-001"
+  customerId        String       @map("customer_id")
+  status            OrderStatus  @default(PENDING)
+  totalAmount       Int          @map("total_amount") // in cents/rupiah
+  shippingAddress   String       @map("shipping_address") @db.Text
+  shippingMethod    String?      @map("shipping_method") // "regular", "same-day", "express"
+  estimatedDelivery DateTime?    @map("estimated_delivery")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  customer  Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items     OrderItem[]
+  payment   Payment?
+  shipping  ShippingTracking?
+
+  @@index([customerId])
+  @@index([orderNumber])
+  @@index([status])
+  @@map("orders")
+}
+
+// OrderItem model - individual items in an order
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String  @map("order_id")
+  productId String  @map("product_id")
+  productName String @map("product_name") // for reference
+  quantity  Int
+  price     Int     // unit price in cents/rupiah
+  subtotal  Int     // quantity * price
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// Payment model - payment records
+model Payment {
+  id            String        @id @default(cuid())
+  orderId       String        @unique @map("order_id")
+  amount        Int           // in cents/rupiah
+  method        PaymentMethod // "bank_transfer", "e_wallet", "credit_card", "cod"
+  status        PaymentStatus @default(PENDING)
+  transactionId String?       @map("transaction_id") // from payment gateway
+  paidAt        DateTime?     @map("paid_at")
+  invoiceUrl    String?       @map("invoice_url")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([status])
+  @@map("payments")
+}
+
+// Inventory model - product stock tracking
+model Inventory {
+  id                String  @id @default(cuid())
+  productId         String  @unique @map("product_id")
+  productName       String  @map("product_name")
+  quantity          Int
+  warehouseLocation String? @map("warehouse_location")
+  lastUpdated       DateTime @default(now()) @map("last_updated")
+
+  @@map("inventory")
+}
+
+// ShippingTracking model - shipping info and tracking
+model ShippingTracking {
+  id                String          @id @default(cuid())
+  orderId           String          @unique @map("order_id")
+  trackingNumber    String?         @unique @map("tracking_number")
+  carrier           ShippingCarrier? // "jne", "sicepat", "tiki", "pos", "gofresh"
+  currentStatus     ShippingStatus  @default(PROCESSING)
+  currentLocation   String?         @map("current_location")
+  estimatedDelivery DateTime?       @map("estimated_delivery")
+  deliveredAt       DateTime?       @map("delivered_at")
+  shippedAt         DateTime?       @map("shipped_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([trackingNumber])
+  @@index([currentStatus])
+  @@map("shipping_tracking")
+}
+
 // Enums
 enum ConversationStatus {
   ACTIVE
@@ -96,4 +195,46 @@ enum ConversationStatus {
 enum MessageRole {
   user
   assistant
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+  FAILED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  bank_transfer
+  e_wallet
+  credit_card
+  cod
+}
+
+enum ShippingStatus {
+  PROCESSING
+  PENDING_PICKUP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  RETURNED
+}
+
+enum ShippingCarrier {
+  jne
+  sicepat
+  tiki
+  pos
+  gofresh
 }

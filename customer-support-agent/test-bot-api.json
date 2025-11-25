@@ -1,0 +1,10 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Mana pesanan saya ORD-2025-001?"
+    }
+  ],
+  "model": "claude-3-5-sonnet-20241022",
+  "sessionId": "test-session-001"
+}
