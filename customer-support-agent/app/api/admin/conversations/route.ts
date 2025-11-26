@@ -26,8 +26,15 @@ export async function GET(req: NextRequest) {
     const conversations = await getPendingConversations();
 
     console.log(`✅ Found ${conversations.length} pending conversations`);
+    console.log(`📋 Conversation IDs:`, conversations.map(c => `${c.id} (${c.status})`));
 
-    return NextResponse.json(conversations);
+    // Create response with no-cache headers
+    const response = NextResponse.json(conversations);
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+
+    return response;
   } catch (error) {
     console.error('❌ Error fetching conversations:', error);
     return NextResponse.json(

@@ -37,14 +37,24 @@ export async function POST(
     console.log(`✅ Marking conversation ${id} as resolved by ${resolvedBy}`);
 
     // Mark conversation as resolved
-    await markConversationResolved(id, resolvedBy, notes);
+    const result = await markConversationResolved(id, resolvedBy, notes);
 
     console.log(`✅ Conversation ${id} resolved successfully`);
+    console.log(`✅ New status: ${result.status}`);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: 'Conversation marked as resolved',
+      conversationId: id,
+      newStatus: result.status,
     });
+
+    // Add no-cache headers
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+
+    return response;
   } catch (error) {
     console.error('❌ Error resolving conversation:', error);
     return NextResponse.json(

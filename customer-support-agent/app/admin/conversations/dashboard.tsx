@@ -43,7 +43,14 @@ export function AdminDashboard() {
       return;
     }
 
-    fetch(`/api/admin/conversations?key=${key}`)
+    // Add cache busting timestamp
+    const timestamp = Date.now();
+    fetch(`/api/admin/conversations?key=${key}&t=${timestamp}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
+    })
       .then((res) => {
         if (!res.ok) {
           throw new Error('Unauthorized or failed to fetch');
@@ -51,6 +58,7 @@ export function AdminDashboard() {
         return res.json();
       })
       .then((data) => {
+        console.log('📊 Fetched conversations:', data.length);
         setConversations(data);
         setLoading(false);
       })
@@ -67,12 +75,15 @@ export function AdminDashboard() {
     const resolvedBy = prompt('Nama Anda:') || 'admin';
 
     try {
+      console.log('🔄 Resolving conversation:', conversationId);
+
       const res = await fetch(
         `/api/admin/conversation/${conversationId}/resolve?key=${key}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ resolvedBy, notes }),
+          cache: 'no-store',
         }
       );
 
@@ -80,10 +91,20 @@ export function AdminDashboard() {
         throw new Error('Failed to resolve conversation');
       }
 
+      const result = await res.json();
+      console.log('✅ Resolve result:', result);
+
       alert('✅ Conversation berhasil di-resolve!');
+
+      // Wait 1 second before refreshing to ensure database is updated
+      console.log('⏳ Waiting 1 second before refresh...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      console.log('🔄 Triggering refresh...');
       // Trigger refresh
       setRefreshTrigger((prev) => prev + 1);
     } catch (error) {
+      console.error('❌ Resolve error:', error);
       alert('❌ Gagal resolve conversation: ' + error);
     }
   };
