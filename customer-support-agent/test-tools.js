@@ -34,7 +34,7 @@ async function testBotTools() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{ role: 'user', content: test.message }],
-          model: 'claude-3-5-sonnet-20241022',
+          model: 'claude-sonnet-4-5-20250929',
           sessionId: `test-${Date.now()}`
         })
       });

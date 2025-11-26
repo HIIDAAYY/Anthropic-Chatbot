@@ -294,7 +294,7 @@ function ChatArea() {
   const models: Model[] = [
     { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku" },
     { id: "claude-haiku-4-5-20251001", name: "Claude 4.5 Haiku" },
-    { id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet" },
+    { id: "claude-sonnet-4-5-20250929", name: "Claude 4.5 Sonnet" },
   ];
 
   const scrollToBottom = () => {
