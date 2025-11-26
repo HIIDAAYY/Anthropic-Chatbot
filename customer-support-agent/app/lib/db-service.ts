@@ -154,7 +154,7 @@ export async function getConversationHistory(
 }
 
 /**
- * Update conversation metadata (mood, categories, redirect info)
+ * Update conversation metadata (mood, categories, redirect info, resolution info)
  */
 export async function updateConversationMetadata(
   conversationId: string,
@@ -164,6 +164,9 @@ export async function updateConversationMetadata(
     redirectReason?: string;
     wasRedirected?: boolean;
     contextUsed?: boolean;
+    resolvedAt?: Date;
+    resolvedBy?: string;
+    resolutionNotes?: string;
   }
 ) {
   try {
