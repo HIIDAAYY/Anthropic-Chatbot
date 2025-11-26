@@ -1,6 +1,6 @@
 {
-  "buildCommand": "cd customer-support-agent && npm run build",
-  "installCommand": "cd customer-support-agent && npm install",
-  "outputDirectory": "customer-support-agent/.next",
+  "buildCommand": "npm --prefix ./customer-support-agent run build",
+  "installCommand": "npm install --prefix ./customer-support-agent",
+  "outputDirectory": "./customer-support-agent/.next",
   "framework": "nextjs"
 }
