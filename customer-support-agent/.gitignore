@@ -69,3 +69,4 @@ lerna-debug.log*
 # OS specific files
 Thumbs.db
 .AppleDouble
+.env*.local

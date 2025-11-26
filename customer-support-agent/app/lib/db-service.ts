@@ -416,9 +416,6 @@ export async function getPendingConversations() {
     return await prisma.conversation.findMany({
       where: {
         status: ConversationStatus.REDIRECTED,
-        metadata: {
-          resolvedAt: null,
-        },
       },
       include: {
         customer: true,
