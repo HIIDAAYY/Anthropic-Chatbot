@@ -389,19 +389,24 @@ export async function markConversationResolved(
   resolutionNotes: string
 ) {
   try {
-    return await prisma.conversation.update({
+    // First, ensure metadata exists by creating/updating it
+    await updateConversationMetadata(conversationId, {
+      resolvedAt: new Date(),
+      resolvedBy,
+      resolutionNotes,
+    });
+
+    // Then mark conversation as ENDED
+    const conversation = await prisma.conversation.update({
       where: { id: conversationId },
       data: {
         status: ConversationStatus.ENDED,
-        metadata: {
-          update: {
-            resolvedAt: new Date(),
-            resolvedBy,
-            resolutionNotes,
-          },
-        },
+        endedAt: new Date(),
       },
     });
+
+    console.log(`✅ Conversation ${conversationId} marked as ENDED and resolved`);
+    return conversation;
   } catch (error) {
     console.error('Error marking conversation as resolved:', error);
     throw error;
