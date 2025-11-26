@@ -457,6 +457,7 @@ export async function getPendingConversations() {
       LEFT JOIN customers cu ON c.customer_id = cu.id
       LEFT JOIN conversation_metadata m ON c.id = m.conversation_id
       WHERE c.status = 'REDIRECTED'
+      AND ${Date.now()} > 0 -- Cache buster to bypass Prisma Accelerate
       ORDER BY c.started_at DESC
     `;
 
