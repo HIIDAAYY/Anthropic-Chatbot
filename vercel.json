@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd customer-support-agent && npm run build",
+  "installCommand": "cd customer-support-agent && npm install",
+  "outputDirectory": "customer-support-agent/.next",
+  "framework": "nextjs"
+}
