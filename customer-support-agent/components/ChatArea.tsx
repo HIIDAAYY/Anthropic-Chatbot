@@ -456,8 +456,19 @@ function ChatArea() {
     const placeholderDisplayed = performance.now();
     logDuration("Perceived Latency", placeholderDisplayed - clientStart);
 
+    // Ensure we have a session ID
+    let currentSessionId = sessionId;
+    if (!currentSessionId) {
+      currentSessionId = localStorage.getItem("chatSessionId") || "";
+      if (!currentSessionId) {
+        currentSessionId = crypto.randomUUID();
+        localStorage.setItem("chatSessionId", currentSessionId);
+      }
+      setSessionId(currentSessionId);
+    }
+
     try {
-      console.log("➡️ Sending message to API:", userMessage.content);
+      console.log("➡️ Sending message to API:", userMessage.content, "SessionID:", currentSessionId);
       const startTime = performance.now();
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -466,7 +477,7 @@ function ChatArea() {
           messages: [...messages, userMessage],
           model: selectedModel,
           knowledgeBaseId: selectedKnowledgeBase,
-          sessionId: sessionId, // Pass session ID for database persistence
+          sessionId: currentSessionId, // Pass session ID for database persistence
         }),
       });
 
@@ -643,11 +654,9 @@ function ChatArea() {
               {messages.map((message, index) => (
                 <div key={message.id}>
                   <div
-                    className={`flex items-start ${
-                      message.role === "user" ? "justify-end" : ""
-                    } ${
-                      index === messages.length - 1 ? "animate-fade-in-up" : ""
-                    }`}
+                    className={`flex items-start ${message.role === "user" ? "justify-end" : ""
+                      } ${index === messages.length - 1 ? "animate-fade-in-up" : ""
+                      }`}
                     style={{
                       animationDuration: "300ms",
                       animationFillMode: "backwards",
@@ -663,11 +672,10 @@ function ChatArea() {
                       </Avatar>
                     )}
                     <div
-                      className={`p-3 rounded-md text-sm max-w-[65%] ${
-                        message.role === "user"
+                      className={`p-3 rounded-md text-sm max-w-[65%] ${message.role === "user"
                           ? "bg-primary text-primary-foreground"
                           : "bg-muted border"
-                      }`}
+                        }`}
                     >
                       <MessageContent
                         content={message.content}
