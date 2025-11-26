@@ -292,12 +292,12 @@ export async function POST(req: Request) {
   }
   `
 
-  function sanitizeAndParseJSON(jsonString : string) {
+  function sanitizeAndParseJSON(jsonString: string) {
     // Replace newlines within string values
-    const sanitized = jsonString.replace(/(?<=:\s*")(.|\n)*?(?=")/g, match => 
+    const sanitized = jsonString.replace(/(?<=:\s*")(.|\n)*?(?=")/g, match =>
       match.replace(/\n/g, "\\n")
     );
-  
+
     try {
       return JSON.parse(sanitized);
     } catch (parseError) {
@@ -459,10 +459,10 @@ export async function POST(req: Request) {
       try {
         measureTime("Database Save Start");
 
-        // Get or create customer with demo phone number
-        // For demo purposes, use the seeded customer phone number
-        const DEMO_PHONE = "081234567890";
-        const customer = await getOrCreateCustomer(DEMO_PHONE);
+        // Get or create customer
+        // Use sessionId to identify web users, fallback to demo phone
+        const customerIdentifier = sessionId ? `web_${sessionId}` : "081234567890";
+        const customer = await getOrCreateCustomer(customerIdentifier);
 
         // Get active conversation, or create one if it doesn't exist
         let conversation = await getActiveConversation(customer.id);
