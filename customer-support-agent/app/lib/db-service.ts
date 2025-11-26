@@ -440,17 +440,60 @@ export async function markConversationResolved(
  */
 export async function getPendingConversations() {
   try {
-    return await prisma.conversation.findMany({
-      where: {
-        status: ConversationStatus.REDIRECTED,
-      },
-      include: {
-        customer: true,
-        metadata: true,
-        messages: { take: 5, orderBy: { timestamp: 'desc' } },
-      },
-      orderBy: { startedAt: 'desc' },
-    });
+    // Use raw query to bypass Prisma Accelerate cache completely
+    const conversations = await prisma.$queryRaw<any[]>`
+      SELECT
+        c.id,
+        c.customer_id as "customerId",
+        c.status,
+        c.started_at as "startedAt",
+        c.ended_at as "endedAt",
+        cu.name as "customerName",
+        cu.phone_number as "customerPhone",
+        m.user_mood as "userMood",
+        m.redirect_reason as "redirectReason",
+        m.notification_sent_at as "notificationSentAt"
+      FROM conversations c
+      LEFT JOIN customers cu ON c.customer_id = cu.id
+      LEFT JOIN conversation_metadata m ON c.id = m.conversation_id
+      WHERE c.status = 'REDIRECTED'
+      ORDER BY c.started_at DESC
+    `;
+
+    console.log('🔍 Raw query result count:', conversations.length);
+    console.log('🔍 Conversation statuses:', conversations.map(c => `${c.id}: ${c.status}`));
+
+    // Transform raw results to match expected format
+    const result = await Promise.all(
+      conversations.map(async (conv) => {
+        const messages = await prisma.message.findMany({
+          where: { conversationId: conv.id },
+          orderBy: { timestamp: 'desc' },
+          take: 5,
+        });
+
+        return {
+          id: conv.id,
+          customerId: conv.customerId,
+          status: conv.status,
+          startedAt: conv.startedAt,
+          endedAt: conv.endedAt,
+          customer: {
+            name: conv.customerName,
+            phoneNumber: conv.customerPhone,
+          },
+          metadata: {
+            userMood: conv.userMood,
+            redirectReason: conv.redirectReason,
+            notificationSentAt: conv.notificationSentAt,
+          },
+          messages: messages,
+        };
+      })
+    );
+
+    console.log('✅ Returning', result.length, 'pending conversations');
+    return result;
   } catch (error) {
     console.error('Error getting pending conversations:', error);
     throw error;
