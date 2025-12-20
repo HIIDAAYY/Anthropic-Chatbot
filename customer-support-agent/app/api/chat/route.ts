@@ -172,14 +172,29 @@ export async function POST(req: Request) {
   `
     : "";
 
-  // Change the system prompt company for your use case
-  const systemPrompt = `You are acting as a customer support assistant for UrbanStyle ID, an Indonesian fashion e-commerce platform. You are chatting with customers who need help with orders, payments, shipping, returns, products, and other e-commerce related questions.
+  // Change the system prompt based on knowledge base
+  const getSystemPromptIntro = () => {
+    if (knowledgeBaseId === "clinic") {
+      return `You are acting as a customer support assistant for Klinik Kecantikan & Gigi (Beauty & Dental Clinic), an Indonesian healthcare facility. You are chatting with patients/customers who need help with beauty treatments, dental services, appointments, pricing, and other clinic-related questions.
+
+  **Important Guidelines:**
+  - Respond in the SAME LANGUAGE as the customer's question (Indonesian or English)
+  - Be friendly, helpful, and professional with a warm tone suitable for healthcare
+  - Customers are primarily Indonesian, so be culturally aware and use appropriate greetings
+  - Focus on clinic's beauty and dental services, treatments, and policies`;
+    }
+
+    // Default: UrbanStyle
+    return `You are acting as a customer support assistant for UrbanStyle ID, an Indonesian fashion e-commerce platform. You are chatting with customers who need help with orders, payments, shipping, returns, products, and other e-commerce related questions.
 
   **Important Guidelines:**
   - Respond in the SAME LANGUAGE as the customer's question (Indonesian or English)
   - Be friendly, helpful, and professional with a warm tone suitable for fashion retail
   - Customers are primarily Indonesian, so be culturally aware and use appropriate greetings
-  - Focus on UrbanStyle ID's products, services, and policies
+  - Focus on UrbanStyle ID's products, services, and policies`;
+  };
+
+  const systemPrompt = `${getSystemPromptIntro()}
 
   **Knowledge Base Context:**
   To help you answer the customer's question, we have retrieved the following information from our knowledge base. Use this information to provide accurate answers:
@@ -201,7 +216,7 @@ export async function POST(req: Request) {
 
   ${categoriesContext}
 
-  If the question is completely unrelated to e-commerce, fashion, shopping, or UrbanStyle ID services, politely redirect the user to a human agent.
+  If the question is completely unrelated to ${knowledgeBaseId === "clinic" ? "beauty, dental, healthcare, or clinic services" : "e-commerce, fashion, shopping, or UrbanStyle ID services"}, politely redirect the user to a human agent.
 
   You are the first point of contact for the user and should try to resolve their issue or provide relevant information. If you are unable to help the user or if the user explicitly asks to talk to a human, you can redirect them to a human agent for further assistance.
   
@@ -293,16 +308,111 @@ export async function POST(req: Request) {
   `
 
   function sanitizeAndParseJSON(jsonString: string) {
-    // Replace newlines within string values
-    const sanitized = jsonString.replace(/(?<=:\s*")(.|\n)*?(?=")/g, match =>
-      match.replace(/\n/g, "\\n")
-    );
+    // Helper function for robust JSON parsing
+    const robustJSONParse = (str: string): any => {
+      const cleanStr = str.trim();
+
+      // 1. Try direct parse
+      try {
+        return JSON.parse(cleanStr);
+      } catch (e) {
+        // Continue to sanitization
+      }
+
+      // 2. Try sanitizing newlines
+      // Replace newlines within string values with \\n
+      const sanitized = cleanStr.replace(/(?<=:\s*")(.|\n)*?(?=")/g, match =>
+        match.replace(/\n/g, "\\n")
+      );
+
+      try {
+        return JSON.parse(sanitized);
+      } catch (e) {
+        // Continue to regex fallback
+      }
+
+      // 3. Regex Fallback
+      console.log("⚠️ JSON parse failed, attempting regex fallback...");
+      const responseMatch = cleanStr.match(/"response"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      const thinkingMatch = cleanStr.match(/"thinking"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+
+      if (responseMatch) {
+        console.log("✅ Regex fallback successful");
+        const unescapeString = (s: string) => s
+          .replace(/\\"/g, '"')
+          .replace(/\\n/g, '\n')
+          .replace(/\\r/g, '\r')
+          .replace(/\\t/g, '\t')
+          .replace(/\\\\/g, '\\');
+
+        return {
+          response: unescapeString(responseMatch[1]),
+          thinking: thinkingMatch ? unescapeString(thinkingMatch[1]) : "Processing...",
+          user_mood: "neutral",
+          suggested_questions: [],
+          debug: { context_used: false },
+          matched_categories: [],
+          tools_used: [],
+          redirect_to_agent: { should_redirect: false }
+        };
+      }
+
+      throw new Error("Failed to parse JSON response");
+    };
+
+    let unwrapped = jsonString.trim();
+
+    // Try to find JSON object within the string
+    const firstBrace = unwrapped.indexOf('{');
+    const lastBrace = unwrapped.lastIndexOf('}');
+
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      unwrapped = unwrapped.substring(firstBrace, lastBrace + 1);
+    }
+
+    // Helper to recursively unwrap nested JSON in the 'response' field
+    const unwrapNestedResponse = (obj: any): any => {
+      if (obj.response && typeof obj.response === 'string') {
+        const trimmedResponse = obj.response.trim();
+        let innerContent = trimmedResponse;
+        let isCodeBlock = false;
+
+        // Check for markdown code blocks
+        const responseCodeBlock = trimmedResponse.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
+        if (responseCodeBlock) {
+          innerContent = responseCodeBlock[1].trim();
+          isCodeBlock = true;
+        }
+
+        // Check if it looks like a JSON object
+        if (innerContent.startsWith('{')) {
+          try {
+            // Use robust parsing for the nested content too!
+            const nested = robustJSONParse(innerContent);
+            if (nested.response) {
+              return unwrapNestedResponse({ ...obj, ...nested });
+            }
+          } catch (e) {
+            // Not valid JSON, if it was a code block, keep the content
+            if (isCodeBlock) {
+              return { ...obj, response: innerContent };
+            }
+            // If not a code block and failed to parse, keep original
+          }
+        } else if (isCodeBlock) {
+          // Text in code block
+          return { ...obj, response: innerContent };
+        }
+      }
+      return obj;
+    };
 
     try {
-      return JSON.parse(sanitized);
+      const parsed = robustJSONParse(unwrapped);
+      return unwrapNestedResponse(parsed);
     } catch (parseError) {
-      console.error("Error parsing JSON response:", parseError);
-      throw new Error("Invalid JSON response from AI");
+      console.error("❌ Final JSON parse failed:", parseError);
+      throw parseError;
     }
   }
 
@@ -338,7 +448,7 @@ export async function POST(req: Request) {
       { maxRetries: 2, initialDelay: 1000, maxDelay: 3000 }
     );
 
-    console.log(`📊 Stop reason: ${response.stop_reason}`);
+    console.log(`📊 Stop reason: ${response.stop_reason} `);
 
     // Handle tool use if Claude requested it
     if (response.stop_reason === "tool_use") {
@@ -413,12 +523,15 @@ export async function POST(req: Request) {
 
     const textContent = textBlocks.map((block) => block.text).join("\n");
 
+    console.log("📋 Raw Claude response (first 500 chars):", textContent.substring(0, 500));
+
     // Parse the response as JSON (Claude is instructed to return JSON)
     let parsedResponse;
     try {
       // Try to parse as JSON
       if (textContent.trim().startsWith("{")) {
         parsedResponse = sanitizeAndParseJSON(textContent);
+        console.log("📦 Parsed response object - response field (first 300 chars):", parsedResponse.response?.substring(0, 300));
       } else {
         // If not JSON, wrap response as simple text
         parsedResponse = {
@@ -461,7 +574,7 @@ export async function POST(req: Request) {
 
         // Get or create customer
         // Use sessionId to identify web users, fallback to demo phone
-        const customerIdentifier = sessionId ? `web_${sessionId}` : "081234567890";
+        const customerIdentifier = sessionId ? `web_${sessionId} ` : "081234567890";
         const customer = await getOrCreateCustomer(customerIdentifier);
 
         // Get active conversation, or create one if it doesn't exist
@@ -530,7 +643,7 @@ export async function POST(req: Request) {
             const status = emailSent || whatsappSent ? 'sent' : 'failed';
 
             await updateNotificationStatus(conversation.id, status, method);
-            console.log(`✅ Agent notified via: ${method}`);
+            console.log(`✅ Agent notified via: ${method} `);
           } catch (notificationError) {
             console.error("❌ Failed to notify agent:", notificationError);
           }

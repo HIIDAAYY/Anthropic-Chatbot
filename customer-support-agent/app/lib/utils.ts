@@ -29,26 +29,34 @@ export interface RAGSource {
 export async function retrieveContextFromPinecone(
   query: string,
   n: number = 3,
+  sourceFilter?: string, // Optional filter: "clinic" or empty for all
 ): Promise<{
   context: string;
   isRagWorking: boolean;
   ragSources: RAGSource[];
 }> {
   try {
-    console.log("🔍 Querying Pinecone with:", query);
+    console.log("🔍 Querying Pinecone with:", query, sourceFilter ? `(filter: ${sourceFilter})` : "");
 
     // Query Pinecone
     const results = await queryPineconeWithText(query, n);
 
-    // Parse Pinecone results
-    const ragSources: RAGSource[] = results.matches
+    // Parse Pinecone results with optional filtering
+    let ragSources: RAGSource[] = results.matches
       .filter((match: any) => match.metadata?.text)
       .map((match: any, index: number) => ({
         id: match.id || `pinecone-${index}`,
         fileName: match.metadata?.title || match.metadata?.category || "Knowledge Base",
         snippet: match.metadata?.text || "",
         score: match.score || 0,
+        source: match.metadata?.source, // Include source in object
       }));
+
+    // Apply source filter if specified
+    if (sourceFilter) {
+      ragSources = ragSources.filter((item: any) => item.source === sourceFilter);
+      console.log(`🔎 Filtered to ${sourceFilter}: ${ragSources.length} results`);
+    }
 
     console.log("✅ Pinecone returned", ragSources.length, "results");
 
@@ -138,8 +146,10 @@ export async function retrieveContextFromBedrock(
 }
 
 /**
- * Main retrieve context function - auto-selects between Pinecone and Bedrock
- * If knowledgeBaseId is provided, uses Bedrock. Otherwise uses Pinecone.
+ * Main retrieve context function - auto-selects between Pinecone (with optional filter) and Bedrock
+ * - knowledgeBaseId="" or undefined: Use Pinecone for all (UrbanStyle)
+ * - knowledgeBaseId="clinic": Use Pinecone filtered to clinic sources
+ * - knowledgeBaseId=other: Use AWS Bedrock
  */
 export async function retrieveContext(
   query: string,
@@ -150,13 +160,19 @@ export async function retrieveContext(
   isRagWorking: boolean;
   ragSources: RAGSource[];
 }> {
-  // Use Pinecone by default (if no knowledgeBaseId provided)
-  if (!knowledgeBaseId) {
-    console.log("📍 Using Pinecone for RAG");
-    return retrieveContextFromPinecone(query, n);
+  // Use Pinecone with clinic filter if knowledgeBaseId === "clinic"
+  if (knowledgeBaseId === "clinic") {
+    console.log("🏥 Using Pinecone for Clinic RAG (filtered)");
+    return retrieveContextFromPinecone(query, n, "clinic");
   }
 
-  // Use Bedrock if knowledgeBaseId is provided
+  // Use Pinecone by default (if no knowledgeBaseId provided or empty)
+  if (!knowledgeBaseId) {
+    console.log("📍 Using Pinecone for UrbanStyle RAG");
+    return retrieveContextFromPinecone(query, n); // No filter = all sources
+  }
+
+  // Use Bedrock if knowledgeBaseId is provided (for other knowledge bases)
   console.log("☁️ Using AWS Bedrock for RAG");
   return retrieveContextFromBedrock(query, knowledgeBaseId, n);
 }

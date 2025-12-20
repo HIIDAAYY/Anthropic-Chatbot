@@ -122,17 +122,53 @@ const MessageContent = ({
   content: string;
   role: string;
 }) => {
+  // Helper function to extract actual response from possibly nested JSON
+  const extractResponse = (responseStr: string): string => {
+    if (!responseStr) return "";
+
+    let result = responseStr.trim();
+
+    // Check if response is a JSON code block
+    const codeBlockMatch = result.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
+    if (codeBlockMatch) {
+      result = codeBlockMatch[1].trim();
+      console.log("🔧 Extracted from code block");
+    }
+
+    // Check if the content is JSON with a 'response' field
+    if (result.startsWith('{')) {
+      try {
+        const innerParsed = JSON.parse(result);
+        if (innerParsed.response && typeof innerParsed.response === 'string') {
+          console.log("🔧 Extracted nested response field");
+          // Recursively extract in case of multiple nesting
+          return extractResponse(innerParsed.response);
+        }
+      } catch (e) {
+        // Not valid JSON, return as-is
+      }
+    }
+
+    return result;
+  };
+
   // Parse JSON immediately during render for assistant messages
   if (role === "assistant") {
     try {
+      console.log("🔍 MessageContent - Attempting to parse content:", content.substring(0, 200));
       const parsed = JSON.parse(content);
+      console.log("✅ MessageContent - Parsed object keys:", Object.keys(parsed));
+
+      // Extract the actual response text (handles nested JSON)
+      const actualResponse = extractResponse(parsed.response);
+      console.log("📝 Actual response (first 100 chars):", actualResponse?.substring(0, 100));
 
       // Show thinking state if response is empty or placeholder
-      if (!parsed.response || parsed.response === "..." || parsed.response.length === 0) {
+      if (!actualResponse || actualResponse === "..." || actualResponse.length === 0) {
         return (
           <div className="flex items-center">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2" />
-            <span>Thinking...</span>
+            <span>{parsed.thinking || "Thinking..."}</span>
           </div>
         );
       }
@@ -141,7 +177,7 @@ const MessageContent = ({
       return (
         <>
           <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeHighlight]}>
-            {parsed.response}
+            {actualResponse}
           </ReactMarkdown>
           {parsed.redirect_to_agent && parsed.redirect_to_agent.should_redirect && (
             <UISelector redirectToAgent={parsed.redirect_to_agent} />
@@ -150,6 +186,8 @@ const MessageContent = ({
       );
     } catch (error) {
       // If parsing fails, treat as plain text
+      console.error("❌ MessageContent - JSON parse failed:", error);
+      console.error("❌ MessageContent - Content that failed to parse:", content);
       return (
         <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeHighlight]}>
           {content}
@@ -287,6 +325,7 @@ function ChatArea() {
 
   const knowledgeBases: KnowledgeBase[] = [
     { id: "", name: "Pinecone (Default)" },
+    { id: "clinic", name: "Clinic" },
     // Uncomment and add your AWS Bedrock knowledge base ID if needed
     // { id: "your-bedrock-kb-id", name: "AWS Bedrock KB" },
   ];
@@ -452,6 +491,19 @@ function ChatArea() {
       placeholderMessage,
     ]);
     setInput("");
+
+    // Dispatch sidebar update for placeholder
+    const placeholderEvent = new CustomEvent("updateSidebar", {
+      detail: {
+        id: placeholderMessage.id,
+        content: "AI is processing...",
+        user_mood: "neutral",
+        debug: {
+          context_used: false,
+        },
+      },
+    });
+    window.dispatchEvent(placeholderEvent);
 
     const placeholderDisplayed = performance.now();
     logDuration("Perceived Latency", placeholderDisplayed - clientStart);
@@ -673,8 +725,8 @@ function ChatArea() {
                     )}
                     <div
                       className={`p-3 rounded-md text-sm max-w-[65%] ${message.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted border"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted border"
                         }`}
                     >
                       <MessageContent
