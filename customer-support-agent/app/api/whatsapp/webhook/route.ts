@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           messages: session.messages,
           model: 'claude-haiku-4-5-20251001', // Use Haiku for fast responses
+          knowledgeBaseId: 'clinic', // Use Clinic knowledge base for WhatsApp
         }),
       }
     );
@@ -77,8 +78,38 @@ export async function POST(req: NextRequest) {
     const chatData = await chatResponse.json();
     console.log('Chat API response:', chatData);
 
+    // Helper function to extract actual response from nested JSON
+    const extractActualResponse = (responseStr: string): string => {
+      if (!responseStr) return '';
+
+      let result = responseStr.trim();
+
+      // Check if response is a JSON code block
+      const codeBlockMatch = result.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
+      if (codeBlockMatch) {
+        result = codeBlockMatch[1].trim();
+        console.log('🔧 WhatsApp: Extracted from code block');
+      }
+
+      // Check if the content is JSON with a 'response' field
+      if (result.startsWith('{')) {
+        try {
+          const innerParsed = JSON.parse(result);
+          if (innerParsed.response && typeof innerParsed.response === 'string') {
+            console.log('🔧 WhatsApp: Extracted nested response field');
+            // Recursively extract in case of multiple nesting
+            return extractActualResponse(innerParsed.response);
+          }
+        } catch (e) {
+          // Not valid JSON, return as-is
+        }
+      }
+
+      return result;
+    };
+
     // Extract response parts
-    const responseText = chatData.response || 'Maaf, terjadi kesalahan.';
+    const responseText = extractActualResponse(chatData.response) || 'Maaf, terjadi kesalahan.';
     const suggestedQuestions = chatData.suggested_questions || [];
     const shouldRedirect = chatData.redirect_to_agent?.should_redirect || false;
     const userMood = chatData.user_mood;
