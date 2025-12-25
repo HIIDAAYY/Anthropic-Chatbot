@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/admin/learning/auto-learn",
+      "schedule": "0 2 * * *"
+    }
+  ]
+}
