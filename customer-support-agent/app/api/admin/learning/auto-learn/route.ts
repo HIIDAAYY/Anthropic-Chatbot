@@ -38,7 +38,7 @@ function checkAuth(req: NextRequest): boolean {
   // Accept either admin key or Vercel cron secret
   return (
     authHeader === `Bearer ${adminKey}` ||
-    (cronSecret && cronSecret === process.env.CRON_SECRET)
+    Boolean(cronSecret && cronSecret === process.env.CRON_SECRET)
   );
 }
 
