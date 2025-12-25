@@ -36,29 +36,42 @@ export async function retrieveContextFromPinecone(
   ragSources: RAGSource[];
 }> {
   try {
-    console.log("🔍 Querying Pinecone with:", query, sourceFilter ? `(filter: ${sourceFilter})` : "");
+    console.log("🔍 Querying Pinecone with:", query, sourceFilter ? `(filter: ${sourceFilter})` : "(no filter)");
 
-    // Query Pinecone
-    const results = await queryPineconeWithText(query, n);
+    // Build native Pinecone filter based on sourceFilter
+    let pineconeFilter: Record<string, any> | undefined;
 
-    // Parse Pinecone results with optional filtering
-    let ragSources: RAGSource[] = results.matches
+    if (sourceFilter === "clinic") {
+      // For clinic: Filter documents with source = "clinic"
+      pineconeFilter = { source: { $eq: "clinic" } };
+      console.log("🏥 Using native Pinecone filter for CLINIC");
+    } else if (sourceFilter) {
+      // For other named sources
+      pineconeFilter = { source: { $eq: sourceFilter } };
+      console.log(`📍 Using native Pinecone filter for source: ${sourceFilter}`);
+    }
+    // If no sourceFilter: no filter = query all sources (UrbanStyle + others)
+
+    // Query Pinecone with native filtering
+    const results = await queryPineconeWithText(query, n, pineconeFilter);
+
+    // Parse Pinecone results (no post-query filtering needed!)
+    const ragSources: RAGSource[] = results.matches
       .filter((match: any) => match.metadata?.text)
       .map((match: any, index: number) => ({
         id: match.id || `pinecone-${index}`,
         fileName: match.metadata?.title || match.metadata?.category || "Knowledge Base",
         snippet: match.metadata?.text || "",
         score: match.score || 0,
-        source: match.metadata?.source, // Include source in object
+        source: match.metadata?.source || "default", // Include source in object
       }));
 
-    // Apply source filter if specified
-    if (sourceFilter) {
-      ragSources = ragSources.filter((item: any) => item.source === sourceFilter);
-      console.log(`🔎 Filtered to ${sourceFilter}: ${ragSources.length} results`);
-    }
-
-    console.log("✅ Pinecone returned", ragSources.length, "results");
+    console.log(
+      "✅ Pinecone returned",
+      ragSources.length,
+      "results",
+      sourceFilter ? `(filtered to ${sourceFilter})` : "(all sources)"
+    );
 
     // Build context from results
     const context = ragSources
@@ -143,6 +156,62 @@ export async function retrieveContextFromBedrock(
     console.error("❌ Bedrock RAG Error:", error);
     return { context: "", isRagWorking: false, ragSources: [] };
   }
+}
+
+/**
+ * Auto-detect knowledge base based on query content
+ * Returns 'clinic' for healthcare-related queries, undefined for UrbanStyle/default
+ */
+export function detectKnowledgeBase(query: string): string | undefined {
+  const lowerQuery = query.toLowerCase();
+
+  // Keywords untuk Clinic (healthcare, beauty, dental)
+  const clinicKeywords = [
+    'klinik', 'clinic', 'dokter', 'doctor', 'gigi', 'dental', 'teeth', 'tooth',
+    'perawatan wajah', 'facial', 'skin', 'kulit', 'beauty treatment',
+    'botox', 'filler', 'whitening', 'pemutihan', 'scaling', 'bleaching',
+    'cabut gigi', 'tambal', 'filling', 'implant', 'veneer', 'crown', 'behel', 'kawat gigi', 'braces',
+    'konsultasi dokter', 'appointment', 'janji temu', 'jadwal praktek', 'jadwal dokter',
+    'acne', 'jerawat', 'komedo', 'pori-pori', 'flek hitam', 'aging', 'keriput', 'wrinkle',
+    'laser', 'peeling', 'mesotherapy', 'microdermabrasi', 'carbon laser',
+    'sakit gigi', 'gusi', 'gum', 'karang gigi', 'gigi berlubang', 'rontgen gigi',
+    'perawatan kecantikan', 'treatment', 'terapi', 'prosedur medis', 'estetika'
+  ];
+
+  // Keywords untuk UrbanStyle (e-commerce, fashion)
+  const urbanstyleKeywords = [
+    'produk', 'product', 'baju', 'clothes', 'clothing', 'fashion', 'order', 'pesan',
+    'pesanan', 'tracking', 'resi', 'pengiriman', 'shipping', 'ongkir', 'delivery',
+    'payment', 'pembayaran', 'transfer', 'cod', 'cash on delivery', 'bayar',
+    'return', 'retur', 'refund', 'tukar barang', 'ukuran', 'size', 'warna', 'color', 'colour',
+    'stock', 'stok', 'ready', 'available', 'pre-order', 'katalog', 'catalog',
+    'belanja', 'shopping', 'cart', 'keranjang', 'checkout', 'add to cart',
+    'kemeja', 'shirt', 'kaos', 't-shirt', 'celana', 'pants', 'jeans', 'dress', 'rok', 'skirt',
+    'jaket', 'jacket', 'sweater', 'hoodie', 'blazer', 'jas', 'sepatu', 'shoes', 'tas', 'bag',
+    'aksesoris', 'accessories', 'topi', 'hat', 'belt', 'ikat pinggang', 'dompet', 'wallet',
+    'diskon', 'discount', 'promo', 'sale', 'voucher', 'kupon', 'cashback',
+    'model', 'trend', 'style', 'koleksi', 'collection', 'new arrival', 'terbaru'
+  ];
+
+  // Count keyword matches
+  const clinicMatches = clinicKeywords.filter(kw => lowerQuery.includes(kw)).length;
+  const urbanstyleMatches = urbanstyleKeywords.filter(kw => lowerQuery.includes(kw)).length;
+
+  console.log(`🔍 KB Detection - Query: "${query.slice(0, 50)}..."`);
+  console.log(`   Clinic matches: ${clinicMatches}, UrbanStyle matches: ${urbanstyleMatches}`);
+
+  // Return based on higher match count
+  if (clinicMatches > urbanstyleMatches) {
+    console.log('🏥 Auto-detected: CLINIC');
+    return 'clinic';
+  } else if (urbanstyleMatches > clinicMatches) {
+    console.log('👔 Auto-detected: URBANSTYLE (default)');
+    return undefined; // undefined = default UrbanStyle (no filter)
+  }
+
+  // If tied or no matches, default to UrbanStyle
+  console.log('❓ No clear detection, using default: URBANSTYLE');
+  return undefined; // Default to UrbanStyle
 }
 
 /**

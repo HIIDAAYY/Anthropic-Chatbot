@@ -18,6 +18,7 @@ import {
   TwilioError,
   getEmergencyResponse,
 } from '@/app/lib/error-handler';
+import { detectKnowledgeBase } from '@/app/lib/utils';
 
 /**
  * WhatsApp Webhook - Receives incoming WhatsApp messages from Twilio
@@ -54,6 +55,10 @@ export async function POST(req: NextRequest) {
       `Session for ${from} has ${session.messages.length} messages. Conversation ID: ${session.conversationId}`
     );
 
+    // Auto-detect knowledge base from user message
+    const detectedKB = detectKnowledgeBase(body);
+    console.log(`📊 Auto-detected KB for "${body.slice(0, 50)}...": ${detectedKB || 'default (UrbanStyle)'}`);
+
     // Call existing chat API with session history
     const chatResponse = await fetch(
       `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/chat`,
@@ -65,7 +70,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           messages: session.messages,
           model: 'claude-haiku-4-5-20251001', // Use Haiku for fast responses
-          knowledgeBaseId: 'clinic', // Use Clinic knowledge base for WhatsApp
+          knowledgeBaseId: detectedKB, // AUTO-DETECTED! (clinic or undefined for UrbanStyle)
         }),
       }
     );
@@ -156,9 +161,11 @@ export async function POST(req: NextRequest) {
       }
 
       // Handle redirect to human agent
-      const redirectMessage = `${responseText}\n\n🙋 *Butuh bantuan lebih lanjut?*\nTim customer service kami siap membantu Anda. Silakan hubungi kami melalui:\n📞 WhatsApp: +62 812-3456-7890\n📧 Email: support@urbanstyleid.com`;
+      const redirectMessage = `${responseText}\n\n🙋 *Butuh bantuan lebih lanjut?*\nTim customer service kami siap membantu Anda. Silakan hubungi kami melalui:\n📞 WhatsApp: +62 812-9876-5432\n📧 Email: info@klinikkecantikangigi.com`;
 
+      console.log('📤 Sending redirect message to WhatsApp:', redirectMessage.substring(0, 200));
       await sendWhatsAppMessage(from, redirectMessage);
+      console.log('✅ Redirect message sent');
     } else if (suggestedQuestions.length > 0) {
       // Send with suggested questions
       await sendWhatsAppMessageWithQuestions(

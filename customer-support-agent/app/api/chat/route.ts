@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { retrieveContext, RAGSource } from "@/app/lib/utils";
+import { retrieveContext, RAGSource, detectKnowledgeBase } from "@/app/lib/utils";
 import crypto from "crypto";
 import customerSupportCategories from "@/app/lib/customer_support_categories.json";
 import {
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
   const measureTime = (label: string) => logTimestamp(label, apiStart);
 
   // Extract data from the request body
-  const { messages, model, knowledgeBaseId, sessionId } = await req.json();
+  let { messages, model, knowledgeBaseId, sessionId } = await req.json();
   const latestMessage = messages[messages.length - 1].content;
 
   // Validate sessionId for database persistence
@@ -97,6 +97,15 @@ export async function POST(req: Request) {
 
   console.log("📝 Latest Query:", latestMessage);
   measureTime("User Input Received");
+
+  // Auto-detect knowledge base if not specified
+  if (!knowledgeBaseId) {
+    const detectedKb = detectKnowledgeBase(latestMessage);
+    if (detectedKb) {
+      knowledgeBaseId = detectedKb;
+      console.log(`🎯 Auto-detected Knowledge Base: ${knowledgeBaseId.toUpperCase()}`);
+    }
+  }
 
   // Prepare debug data
   const MAX_DEBUG_LENGTH = 1000;
@@ -120,9 +129,20 @@ export async function POST(req: Request) {
     console.log(`🔍 Initiating RAG retrieval from ${ragSource} for query:`, latestMessage);
     measureTime("RAG Start");
 
+    // Build contextual query from last 3 user messages for better RAG retrieval
+    const contextualQuery = messages
+      .slice(-5) // Get last 5 messages
+      .filter((m: any) => m.role === 'user') // Only user messages
+      .map((m: any) => m.content)
+      .join(' | '); // Join with separator
+
+    // Use contextual query if available, otherwise use latest message
+    const queryForRAG = contextualQuery || latestMessage;
+    console.log('🔍 Contextual query for RAG (first 150 chars):', queryForRAG.slice(0, 150));
+
     // Retry RAG retrieval with exponential backoff (max 2 retries)
     const result = await retryWithBackoff(
-      () => retrieveContext(latestMessage, knowledgeBaseId),
+      () => retrieveContext(queryForRAG, knowledgeBaseId),
       { maxRetries: 2, initialDelay: 500, maxDelay: 2000 }
     );
 

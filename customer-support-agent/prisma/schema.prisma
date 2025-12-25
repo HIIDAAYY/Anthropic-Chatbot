@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,101 +7,90 @@ datasource db {
   url      = env("PRISMA_DATABASE_URL")
 }
 
-// Customer model - stores customer information
 model Customer {
-  id          String   @id @default(cuid())
-  phoneNumber String   @unique @map("phone_number")
-  name        String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  // Relations
+  id            String         @id @default(cuid())
+  phoneNumber   String         @unique @map("phone_number")
+  name          String?
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
   conversations Conversation[]
   orders        Order[]
 
   @@map("customers")
 }
 
-// Conversation model - tracks chat sessions
 model Conversation {
-  id         String              @id @default(cuid())
-  customerId String              @map("customer_id")
-  status     ConversationStatus  @default(ACTIVE)
-  startedAt  DateTime            @default(now()) @map("started_at")
-  endedAt    DateTime?           @map("ended_at")
-
-  // Relations
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  messages Message[]
-  metadata ConversationMetadata?
+  id             String                @id @default(cuid())
+  customerId     String                @map("customer_id")
+  status         ConversationStatus    @default(ACTIVE)
+  startedAt      DateTime              @default(now()) @map("started_at")
+  endedAt        DateTime?             @map("ended_at")
+  metadata       ConversationMetadata?
+  customer       Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  messages       Message[]
+  learnedQAPairs LearnedQAPair[]
 
   @@index([customerId])
   @@index([status])
   @@map("conversations")
 }
 
-// Message model - stores individual messages
 model Message {
   id             String       @id @default(cuid())
   conversationId String       @map("conversation_id")
   role           MessageRole
-  content        String       @db.Text
+  content        String
   timestamp      DateTime     @default(now())
-
-  // Relations
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
   @@index([timestamp])
   @@map("messages")
 }
 
-// ConversationMetadata model - stores analysis metadata
 model ConversationMetadata {
-  id               String   @id @default(cuid())
-  conversationId   String   @unique @map("conversation_id")
-  userMood         String?  @map("user_mood")
-  categories       String[] @default([])
-  redirectReason   String?  @map("redirect_reason") @db.Text
-  wasRedirected    Boolean  @default(false) @map("was_redirected")
-  contextUsed      Boolean  @default(false) @map("context_used")
+  id                 String       @id @default(cuid())
+  conversationId     String       @unique @map("conversation_id")
+  userMood           String?      @map("user_mood")
+  categories         String[]     @default([])
+  redirectReason     String?      @map("redirect_reason")
+  wasRedirected      Boolean      @default(false) @map("was_redirected")
+  contextUsed        Boolean      @default(false) @map("context_used")
+  notificationMethod String?      @map("notification_method")
+  notificationSentAt DateTime?    @map("notification_sent_at")
+  notificationStatus String?      @map("notification_status")
+  resolutionNotes    String?      @map("resolution_notes")
+  resolvedAt         DateTime?    @map("resolved_at")
+  resolvedBy         String?      @map("resolved_by")
 
-  // ===== PHASE 4: Notification Tracking Fields =====
-  notificationSentAt   DateTime?  @map("notification_sent_at")
-  notificationMethod   String?    @map("notification_method") // "email", "whatsapp", or "email,whatsapp"
-  notificationStatus   String?    @map("notification_status") // "pending", "sent", "failed"
+  // ===== AUTO-LEARNING: Quality Tracking Fields =====
+  qualityScore      Float?    @map("quality_score")      // 0-1 score for learning eligibility
+  learningEligible  Boolean   @default(false) @map("learning_eligible")
+  learnedAt         DateTime? @map("learned_at")          // When Q&A was extracted
 
-  // ===== PHASE 4: Resolution Tracking Fields =====
-  resolvedAt           DateTime?  @map("resolved_at")
-  resolvedBy           String?    @map("resolved_by") // Name of who resolved it
-  resolutionNotes      String?    @map("resolution_notes") @db.Text
-
-  // Relations
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation       Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([wasRedirected])
   @@index([notificationSentAt])
+  @@index([learningEligible])
   @@map("conversation_metadata")
 }
 
-// Order model - stores customer orders
 model Order {
-  id                String       @id @default(cuid())
-  orderNumber       String       @unique @map("order_number") // e.g., "ORD-2025-001"
-  customerId        String       @map("customer_id")
-  status            OrderStatus  @default(PENDING)
-  totalAmount       Int          @map("total_amount") // in cents/rupiah
-  shippingAddress   String       @map("shipping_address") @db.Text
-  shippingMethod    String?      @map("shipping_method") // "regular", "same-day", "express"
-  estimatedDelivery DateTime?    @map("estimated_delivery")
-  createdAt         DateTime     @default(now()) @map("created_at")
-  updatedAt         DateTime     @updatedAt @map("updated_at")
-
-  // Relations
-  customer  Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  items     OrderItem[]
-  payment   Payment?
-  shipping  ShippingTracking?
+  id                String            @id @default(cuid())
+  orderNumber       String            @unique @map("order_number")
+  customerId        String            @map("customer_id")
+  status            OrderStatus       @default(PENDING)
+  totalAmount       Int               @map("total_amount")
+  shippingAddress   String            @map("shipping_address")
+  shippingMethod    String?           @map("shipping_method")
+  estimatedDelivery DateTime?         @map("estimated_delivery")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  items             OrderItem[]
+  customer          Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  payment           Payment?
+  shipping          ShippingTracking?
 
   @@index([customerId])
   @@index([orderNumber])
@@ -112,72 +98,62 @@ model Order {
   @@map("orders")
 }
 
-// OrderItem model - individual items in an order
 model OrderItem {
-  id        String  @id @default(cuid())
-  orderId   String  @map("order_id")
-  productId String  @map("product_id")
-  productName String @map("product_name") // for reference
-  quantity  Int
-  price     Int     // unit price in cents/rupiah
-  subtotal  Int     // quantity * price
-
-  // Relations
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id          String @id @default(cuid())
+  orderId     String @map("order_id")
+  productId   String @map("product_id")
+  productName String @map("product_name")
+  quantity    Int
+  price       Int
+  subtotal    Int
+  order       Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
   @@map("order_items")
 }
 
-// Payment model - payment records
 model Payment {
   id            String        @id @default(cuid())
   orderId       String        @unique @map("order_id")
-  amount        Int           // in cents/rupiah
-  method        PaymentMethod // "bank_transfer", "e_wallet", "credit_card", "cod"
+  amount        Int
+  method        PaymentMethod
   status        PaymentStatus @default(PENDING)
-  transactionId String?       @map("transaction_id") // from payment gateway
+  transactionId String?       @map("transaction_id")
   paidAt        DateTime?     @map("paid_at")
   invoiceUrl    String?       @map("invoice_url")
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
-
-  // Relations
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
   @@index([status])
   @@map("payments")
 }
 
-// Inventory model - product stock tracking
 model Inventory {
-  id                String  @id @default(cuid())
-  productId         String  @unique @map("product_id")
-  productName       String  @map("product_name")
+  id                String   @id @default(cuid())
+  productId         String   @unique @map("product_id")
+  productName       String   @map("product_name")
   quantity          Int
-  warehouseLocation String? @map("warehouse_location")
+  warehouseLocation String?  @map("warehouse_location")
   lastUpdated       DateTime @default(now()) @map("last_updated")
 
   @@map("inventory")
 }
 
-// ShippingTracking model - shipping info and tracking
 model ShippingTracking {
-  id                String          @id @default(cuid())
-  orderId           String          @unique @map("order_id")
-  trackingNumber    String?         @unique @map("tracking_number")
-  carrier           ShippingCarrier? // "jne", "sicepat", "tiki", "pos", "gofresh"
-  currentStatus     ShippingStatus  @default(PROCESSING)
-  currentLocation   String?         @map("current_location")
-  estimatedDelivery DateTime?       @map("estimated_delivery")
-  deliveredAt       DateTime?       @map("delivered_at")
-  shippedAt         DateTime?       @map("shipped_at")
-  createdAt         DateTime        @default(now()) @map("created_at")
-  updatedAt         DateTime        @updatedAt @map("updated_at")
-
-  // Relations
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id                String           @id @default(cuid())
+  orderId           String           @unique @map("order_id")
+  trackingNumber    String?          @unique @map("tracking_number")
+  carrier           ShippingCarrier?
+  currentStatus     ShippingStatus   @default(PROCESSING)
+  currentLocation   String?          @map("current_location")
+  estimatedDelivery DateTime?        @map("estimated_delivery")
+  deliveredAt       DateTime?        @map("delivered_at")
+  shippedAt         DateTime?        @map("shipped_at")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  order             Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
   @@index([trackingNumber])
@@ -185,7 +161,96 @@ model ShippingTracking {
   @@map("shipping_tracking")
 }
 
-// Enums
+model AdminAuditLog {
+  id          String     @id
+  adminUserId String?
+  action      String
+  resource    String?
+  resourceId  String?
+  details     Json?
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime   @default(now())
+  AdminUser   AdminUser? @relation(fields: [adminUserId], references: [id])
+
+  @@index([action])
+  @@index([adminUserId])
+  @@index([timestamp])
+}
+
+model AdminSession {
+  id          String    @id
+  adminUserId String
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  ipAddress   String?
+  userAgent   String?
+  AdminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+  @@index([expiresAt])
+  @@index([tokenHash])
+}
+
+model AdminUser {
+  id            String          @id
+  username      String          @unique
+  passwordHash  String
+  name          String
+  email         String          @unique
+  role          AdminRole       @default(ADMIN)
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime
+  AdminAuditLog AdminAuditLog[]
+  AdminSession  AdminSession[]
+
+  @@index([email])
+  @@index([username])
+}
+
+// ===== AUTO-LEARNING: LearnedQAPair model =====
+// Stores Q&A pairs extracted from successful conversations
+model LearnedQAPair {
+  id                String   @id @default(cuid())
+  conversationId    String   @map("conversation_id")
+  sourceMessageIds  String[] @map("source_message_ids") // Which messages were used
+
+  // Q&A content
+  question          String   @db.Text
+  answer            String   @db.Text
+  category          String?  // e.g., "payment", "shipping", "product"
+
+  // Quality metrics
+  qualityScore      Float    @map("quality_score")      // 0-1 score
+  confidenceScore   Float    @map("confidence_score")   // 0-1 score
+
+  // Approval workflow
+  status            LearnedQAStatus @default(PENDING)
+  reviewedBy        String?  @map("reviewed_by")
+  reviewedAt        DateTime? @map("reviewed_at")
+  reviewNotes       String?  @map("review_notes") @db.Text
+
+  // Knowledge base sync tracking
+  pineconeId        String?  @unique @map("pinecone_id")
+  syncedAt          DateTime? @map("synced_at")
+
+  // Timestamps
+  extractedAt       DateTime @default(now()) @map("extracted_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([status])
+  @@index([qualityScore])
+  @@index([pineconeId])
+  @@map("learned_qa_pairs")
+}
+
 enum ConversationStatus {
   ACTIVE
   ENDED
@@ -237,4 +302,18 @@ enum ShippingCarrier {
   tiki
   pos
   gofresh
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  VIEWER
+}
+
+enum LearnedQAStatus {
+  PENDING      // Waiting for review
+  APPROVED     // Approved for knowledge base
+  REJECTED     // Not suitable for learning
+  SYNCED       // Successfully synced to knowledge base
+  ARCHIVED     // Removed from knowledge base
 }

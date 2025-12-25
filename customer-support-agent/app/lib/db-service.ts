@@ -500,3 +500,280 @@ export async function getPendingConversations() {
     throw error;
   }
 }
+
+// ===== AUTO-LEARNING: LearnedQAPair CRUD Functions =====
+
+/**
+ * Create a new learned Q&A pair from a conversation
+ */
+export async function createLearnedQAPair(data: {
+  conversationId: string;
+  sourceMessageIds: string[];
+  question: string;
+  answer: string;
+  category?: string;
+  qualityScore: number;
+  confidenceScore: number;
+}) {
+  try {
+    const qaPair = await prisma.learnedQAPair.create({
+      data,
+      include: {
+        conversation: {
+          include: {
+            customer: true,
+            metadata: true,
+          },
+        },
+      },
+    });
+
+    console.log(`✅ Created learned Q&A pair: ${qaPair.id}`);
+    return qaPair;
+  } catch (error) {
+    console.error('Error creating learned Q&A pair:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get learned Q&A pairs with optional filters
+ */
+export async function getLearnedQAPairs(filter?: {
+  status?: string;
+  conversationId?: string;
+  minQualityScore?: number;
+  category?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  try {
+    const where: any = {};
+
+    if (filter?.status) {
+      where.status = filter.status;
+    }
+
+    if (filter?.conversationId) {
+      where.conversationId = filter.conversationId;
+    }
+
+    if (filter?.minQualityScore !== undefined) {
+      where.qualityScore = { gte: filter.minQualityScore };
+    }
+
+    if (filter?.category) {
+      where.category = filter.category;
+    }
+
+    const qaPairs = await prisma.learnedQAPair.findMany({
+      where,
+      include: {
+        conversation: {
+          include: {
+            customer: true,
+            metadata: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: filter?.limit || 50,
+      skip: filter?.offset || 0,
+    });
+
+    return qaPairs;
+  } catch (error) {
+    console.error('Error getting learned Q&A pairs:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get a single learned Q&A pair by ID
+ */
+export async function getLearnedQAPairById(id: string) {
+  try {
+    const qaPair = await prisma.learnedQAPair.findUnique({
+      where: { id },
+      include: {
+        conversation: {
+          include: {
+            customer: true,
+            metadata: true,
+            messages: {
+              orderBy: { timestamp: 'asc' },
+            },
+          },
+        },
+      },
+    });
+
+    return qaPair;
+  } catch (error) {
+    console.error('Error getting learned Q&A pair:', error);
+    throw error;
+  }
+}
+
+/**
+ * Approve a Q&A pair for syncing to knowledge base
+ */
+export async function approveQAPair(
+  id: string,
+  reviewedBy: string,
+  notes?: string
+) {
+  try {
+    const qaPair = await prisma.learnedQAPair.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        reviewedBy,
+        reviewedAt: new Date(),
+        reviewNotes: notes,
+      },
+    });
+
+    console.log(`✅ Approved Q&A pair: ${id}`);
+    return qaPair;
+  } catch (error) {
+    console.error('Error approving Q&A pair:', error);
+    throw error;
+  }
+}
+
+/**
+ * Reject a Q&A pair
+ */
+export async function rejectQAPair(
+  id: string,
+  reviewedBy: string,
+  reason: string
+) {
+  try {
+    const qaPair = await prisma.learnedQAPair.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        reviewedBy,
+        reviewedAt: new Date(),
+        reviewNotes: reason,
+      },
+    });
+
+    console.log(`✅ Rejected Q&A pair: ${id}`);
+    return qaPair;
+  } catch (error) {
+    console.error('Error rejecting Q&A pair:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update Q&A pair status (for syncing)
+ */
+export async function updateQAPairStatus(
+  id: string,
+  status: string,
+  pineconeId?: string
+) {
+  try {
+    const data: any = {
+      status,
+    };
+
+    if (pineconeId) {
+      data.pineconeId = pineconeId;
+      data.syncedAt = new Date();
+    }
+
+    const qaPair = await prisma.learnedQAPair.update({
+      where: { id },
+      data,
+    });
+
+    console.log(`✅ Updated Q&A pair status: ${id} -> ${status}`);
+    return qaPair;
+  } catch (error) {
+    console.error('Error updating Q&A pair status:', error);
+    throw error;
+  }
+}
+
+/**
+ * Mark conversation as learned (update metadata)
+ */
+export async function markConversationAsLearned(
+  conversationId: string,
+  qualityScore: number
+) {
+  try {
+    await prisma.conversationMetadata.upsert({
+      where: { conversationId },
+      create: {
+        conversationId,
+        qualityScore,
+        learningEligible: true,
+        learnedAt: new Date(),
+      },
+      update: {
+        qualityScore,
+        learningEligible: true,
+        learnedAt: new Date(),
+      },
+    });
+
+    console.log(`✅ Marked conversation as learned: ${conversationId}`);
+  } catch (error) {
+    console.error('Error marking conversation as learned:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get learning statistics
+ */
+export async function getLearnedQAStats() {
+  try {
+    const total = await prisma.learnedQAPair.count();
+    const pending = await prisma.learnedQAPair.count({
+      where: { status: 'PENDING' },
+    });
+    const approved = await prisma.learnedQAPair.count({
+      where: { status: 'APPROVED' },
+    });
+    const synced = await prisma.learnedQAPair.count({
+      where: { status: 'SYNCED' },
+    });
+    const rejected = await prisma.learnedQAPair.count({
+      where: { status: 'REJECTED' },
+    });
+
+    // Average quality scores
+    const qualityStats = await prisma.learnedQAPair.aggregate({
+      _avg: {
+        qualityScore: true,
+        confidenceScore: true,
+      },
+    });
+
+    // Learning-eligible conversations
+    const eligibleConversations = await prisma.conversationMetadata.count({
+      where: { learningEligible: true },
+    });
+
+    return {
+      total,
+      pending,
+      approved,
+      synced,
+      rejected,
+      avgQualityScore: qualityStats._avg.qualityScore || 0,
+      avgConfidenceScore: qualityStats._avg.confidenceScore || 0,
+      eligibleConversations,
+    };
+  } catch (error) {
+    console.error('Error getting learned Q&A stats:', error);
+    throw error;
+  }
+}
