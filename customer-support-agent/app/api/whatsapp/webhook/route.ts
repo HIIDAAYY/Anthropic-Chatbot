@@ -49,10 +49,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Get or create session for this phone number (now async)
-    const session = await getSession(from);
+    let session = await getSession(from);
 
     // Add user message to session (now async)
     await addUserMessage(from, body);
+
+    // IMPORTANT: Refresh session to get updated messages array after adding new message
+    session = await getSession(from);
 
     console.log(
       `Session for ${from} has ${session.messages.length} messages. Conversation ID: ${session.conversationId}`
