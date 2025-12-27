@@ -1,0 +1,35 @@
+Loading .env from: C:\Users\aditm\claude-quickstarts\customer-support-agent\.env.local
+[dotenv@17.2.3] injecting env (21) from .env.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+ANTHROPIC_API_KEY loaded: YES (sk-an...)
+
+================================================================================
+🎓 Manual Learning Script
+================================================================================
+
+
+🔧 Testing Q&A extraction for: cmjgpx3ik0002z5ecotmywuxs
+
+Customer: whatsapp:+6289629778651
+Messages: 15
+
+Extracting Q&A pairs...
+
+✅ Extracted 4 Q&A pairs from conversation cmjgpx3ik0002z5ecotmywuxs
+Extracted 4 Q&A pairs:
+
+1. [clinic] Confidence: 95.0%
+   Q: Apa itu klinik kecantikan?
+   A: Klinik kecantikan adalah fasilitas kesehatan yang menyediakan berbagai layanan perawatan kecantikan dan kesehatan kulit. Layanan kami mencakup perawat...
+
+2. [clinic] Confidence: 92.0%
+   Q: Berapa lama durasi scaling gigi?
+   A: Durasi scaling tergantung pada jumlah karang gigi yang Anda miliki. Scaling ringan membutuhkan 30-45 menit, sedangkan scaling berat membutuhkan 60-90 ...
+
+3. [clinic] Confidence: 90.0%
+   Q: Apa efek samping setelah scaling gigi?
+   A: Efek samping setelah scaling minimal. Gigi mungkin terasa sedikit sensitif terhadap makanan panas atau dingin selama 1-2 minggu. Gusi mungkin berdarah...
+
+4. [clinic] Confidence: 85.0%
+   Q: Di mana lokasi klinik dan berapa harga scaling gigi?
+   A: Untuk informasi lengkap tentang lokasi klinik kami dan harga scaling gigi yang spesifik, saya sarankan menghubungi tim customer service kami langsung....
+

@@ -19,6 +19,9 @@ import {
   getEmergencyResponse,
 } from '@/app/lib/error-handler';
 import { detectKnowledgeBase } from '@/app/lib/utils';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 /**
  * WhatsApp Webhook - Receives incoming WhatsApp messages from Twilio
@@ -55,6 +58,36 @@ export async function POST(req: NextRequest) {
       `Session for ${from} has ${session.messages.length} messages. Conversation ID: ${session.conversationId}`
     );
 
+    // ============================================
+    // BUSINESS DETECTION for Booking System
+    // ============================================
+    // Check if the incoming number belongs to a Business (beauty clinic or travel agency)
+    // This allows the bot to know which business context it's operating in
+    let businessContext: any = null;
+    try {
+      const business = await prisma.business.findUnique({
+        where: { phoneNumber: from },
+        include: {
+          settings: true,
+        },
+      });
+
+      if (business) {
+        businessContext = {
+          businessId: business.id,
+          businessName: business.name,
+          businessType: business.type,
+          settings: business.settings,
+        };
+        console.log(`🏢 Business detected: ${business.name} (${business.type})`);
+      } else {
+        console.log(`👤 Customer number detected (not a business): ${from}`);
+      }
+    } catch (error) {
+      console.error('Error detecting business:', error);
+      // Continue without business context
+    }
+
     // Auto-detect knowledge base from user message
     const detectedKB = detectKnowledgeBase(body);
     console.log(`📊 Auto-detected KB for "${body.slice(0, 50)}...": ${detectedKB || 'default (UrbanStyle)'}`);
@@ -71,6 +104,7 @@ export async function POST(req: NextRequest) {
           messages: session.messages,
           model: 'claude-haiku-4-5-20251001', // Use Haiku for fast responses
           knowledgeBaseId: detectedKB, // AUTO-DETECTED! (clinic or undefined for UrbanStyle)
+          businessContext, // Pass business context to chat API
         }),
       }
     );

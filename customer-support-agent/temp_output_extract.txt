@@ -1,0 +1,34 @@
+Loading .env from: C:\Users\aditm\claude-quickstarts\customer-support-agent\.env.local
+[dotenv@17.2.3] injecting env (21) from .env.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+================================================================================
+🎓 Manual Learning Script
+================================================================================
+
+
+🔧 Testing Q&A extraction for: cmjgpx3ik0002z5ecotmywuxs
+
+Customer: whatsapp:+6289629778651
+Messages: 15
+
+Extracting Q&A pairs...
+
+Error extracting Q&A pairs: Error: Could not resolve authentication method. Expected either apiKey or authToken to be set. Or for one of the "X-Api-Key" or "Authorization" headers to be explicitly omitted
+    at Anthropic.validateHeaders (C:\Users\aditm\claude-quickstarts\customer-support-agent\node_modules\@anthropic-ai\sdk\src\index.ts:173:11)
+    at Anthropic.buildHeaders (C:\Users\aditm\claude-quickstarts\customer-support-agent\node_modules\@anthropic-ai\sdk\src\core.ts:361:10)
+    at Anthropic.buildRequest (C:\Users\aditm\claude-quickstarts\customer-support-agent\node_modules\@anthropic-ai\sdk\src\core.ts:323:29)
+    at Anthropic.makeRequest (C:\Users\aditm\claude-quickstarts\customer-support-agent\node_modules\@anthropic-ai\sdk\src\core.ts:418:40)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async extractQAPairs (C:\Users\aditm\claude-quickstarts\customer-support-agent\app\lib\learning-service.ts:239:22)
+    at async testExtraction (C:\Users\aditm\claude-quickstarts\customer-support-agent\scripts\manual-learn.ts:249:19)
+    at async main (C:\Users\aditm\claude-quickstarts\customer-support-agent\scripts\manual-learn.ts:84:7)
+
+❌ Error: Error: Could not resolve authentication method. Expected either apiKey or authToken to be set. Or for one of the "X-Api-Key" or "Authorization" headers to be explicitly omitted
+    at Anthropic.validateHeaders (C:\Users\aditm\claude-quickstarts\customer-support-agent\node_modules\@anthropic-ai\sdk\src\index.ts:173:11)
+    at Anthropic.buildHeaders (C:\Users\aditm\claude-quickstarts\customer-support-agent\node_modules\@anthropic-ai\sdk\src\core.ts:361:10)
+    at Anthropic.buildRequest (C:\Users\aditm\claude-quickstarts\customer-support-agent\node_modules\@anthropic-ai\sdk\src\core.ts:323:29)
+    at Anthropic.makeRequest (C:\Users\aditm\claude-quickstarts\customer-support-agent\node_modules\@anthropic-ai\sdk\src\core.ts:418:40)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async extractQAPairs (C:\Users\aditm\claude-quickstarts\customer-support-agent\app\lib\learning-service.ts:239:22)
+    at async testExtraction (C:\Users\aditm\claude-quickstarts\customer-support-agent\scripts\manual-learn.ts:249:19)
+    at async main (C:\Users\aditm\claude-quickstarts\customer-support-agent\scripts\manual-learn.ts:84:7)

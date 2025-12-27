@@ -1,0 +1,16 @@
+Loading .env from: C:\Users\aditm\claude-quickstarts\customer-support-agent\.env.local
+[dotenv@17.2.3] injecting env (21) from .env.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+================================================================================
+🎓 Manual Learning Script
+================================================================================
+
+
+📊 Testing quality evaluation for: cmjgpx3ik0002z5ecotmywuxs
+
+Customer: whatsapp:+6289629778651
+Messages: 15
+Status: ACTIVE
+
+Evaluating quality...
+

@@ -1,0 +1,43 @@
+Loading .env from: C:\Users\aditm\claude-quickstarts\customer-support-agent\.env.local
+[dotenv@17.2.3] injecting env (21) from .env.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+================================================================================
+🎓 Manual Learning Script
+================================================================================
+
+
+Usage: npx tsx scripts/manual-learn.ts [OPTIONS]
+
+COMMANDS:
+  --conversation-id <id>        Learn from specific conversation
+  --days <number>               Learn from conversations from last N days
+  --list-candidates             Show conversations eligible for learning
+  --test-quality <id>           Test quality evaluation for a conversation
+  --test-extract <id>           Test Q&A extraction for a conversation
+  --review                      Review and approve pending Q&A pairs
+  --stats                       Show learning statistics
+  --help                        Show this help message
+
+OPTIONS:
+  --auto-approve               Auto-approve high-confidence Q&A (confidence > 0.9)
+  --auto-sync                  Auto-sync approved Q&A to Pinecone
+
+EXAMPLES:
+  # Test quality evaluation
+  npx tsx scripts/manual-learn.ts --test-quality clm123456
+
+  # Test Q&A extraction
+  npx tsx scripts/manual-learn.ts --test-extract clm123456
+
+  # Learn from one conversation with auto-approval
+  npx tsx scripts/manual-learn.ts --conversation-id clm123456 --auto-approve
+
+  # Learn from all conversations from last 7 days
+  npx tsx scripts/manual-learn.ts --days 7 --auto-approve
+
+  # Show eligible conversations
+  npx tsx scripts/manual-learn.ts --list-candidates
+
+  # Show statistics
+  npx tsx scripts/manual-learn.ts --stats
+

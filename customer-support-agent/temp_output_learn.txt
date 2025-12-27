@@ -1,0 +1,28 @@
+Loading .env from: C:\Users\aditm\claude-quickstarts\customer-support-agent\.env.local
+[dotenv@17.2.3] injecting env (21) from .env.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+ANTHROPIC_API_KEY loaded: YES (sk-an...)
+
+================================================================================
+🎓 Manual Learning Script
+================================================================================
+
+
+🎓 Learning from conversation: cmjgpx3ik0002z5ecotmywuxs
+
+Customer: whatsapp:+6289629778651
+Messages: 15
+Auto-approve: YES
+Auto-sync: YES
+
+🎓 Starting learning from conversation: cmjgpx3ik0002z5ecotmywuxs
+✅ Evaluated conversation cmjgpx3ik0002z5ecotmywuxs: score=0.42
+⏭️  Skipping conversation cmjgpx3ik0002z5ecotmywuxs: Conversation contains significant issues: bot provides information about a beauty clinic that appears unrelated to the original UrbanStyle ID fashion e-commerce platform, shows inconsistency in handling off-topic questions, lacks critical information (pricing, location), and demonstrates potential hallucination by providing detailed clinic services without clear knowledge base support. Multiple customer questions remain unresolved.
+
+Result:
+  ✅ Success: false
+  📊 Quality Score: 42.0%
+  📝 Q&A Created: 0
+  ✅ Auto-Approved: 0
+  🔗 Synced to KB: 0
+  💬 Message: Not eligible for learning: Conversation contains significant issues: bot provides information about a beauty clinic that appears unrelated to the original UrbanStyle ID fashion e-commerce platform, shows inconsistency in handling off-topic questions, lacks critical information (pricing, location), and demonstrates potential hallucination by providing detailed clinic services without clear knowledge base support. Multiple customer questions remain unresolved.
+

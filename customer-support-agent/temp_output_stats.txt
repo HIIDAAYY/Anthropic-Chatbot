@@ -1,0 +1,21 @@
+Loading .env from: C:\Users\aditm\claude-quickstarts\customer-support-agent\.env.local
+[dotenv@17.2.3] injecting env (21) from .env.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+ANTHROPIC_API_KEY loaded: YES (sk-an...)
+
+================================================================================
+🎓 Manual Learning Script
+================================================================================
+
+
+📊 Learning Statistics
+
+Total Q&A Pairs:        0
+  - Pending Review:     0
+  - Approved:           0
+  - Synced to KB:       0
+  - Rejected:           0
+
+Average Quality Score:  0.0%
+Average Confidence:     0.0%
+Learning-Eligible Conversations: 0
+

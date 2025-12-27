@@ -1,0 +1,73 @@
+Loading .env from: C:\Users\aditm\claude-quickstarts\customer-support-agent\.env.local
+[dotenv@17.2.3] injecting env (21) from .env.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+================================================================================
+🎓 Manual Learning Script
+================================================================================
+
+🔍 Finding eligible conversations...
+
+Found 19 eligible conversations:
+
+1. ID: cmjgrlskn00071dedy2ic26aj
+   Customer: web_6400bfa3-d35b-4191-9a15-0358fa83ed3a 
+   Messages: 2
+   Mood: neutral
+   Started: 22/12/2025, 13.18.19
+
+2. ID: cmjgr57i9001ez5eco4x4atsb
+   Customer: whatsapp:+6285161220535
+   Messages: 3
+   Mood: neutral
+   Started: 22/12/2025, 13.05.25
+
+3. ID: cmjgpx3ik0002z5ecotmywuxs
+   Customer: whatsapp:+6289629778651
+   Messages: 15
+   Mood: neutral
+   Started: 22/12/2025, 12.31.07
+
+4. ID: cmjdz2ug60003xrfr02e7v7oi
+   Customer: web_0e21917b-01b5-4a8b-9d67-d2c334536da9 
+   Messages: 4
+   Mood: neutral
+   Started: 20/12/2025, 14.24.14
+
+5. ID: cmjdymzf9000212h1ze5h0886
+   Customer: web_3892658b-981a-4235-91f2-b468f8ad74e5 
+   Messages: 2
+   Mood: neutral
+   Started: 20/12/2025, 14.11.54
+
+6. ID: cmjdy48e7002219fnsok9rcbf
+   Customer: web_3892658b-981a-4235-91f2-b468f8ad74e5
+   Messages: 6
+   Mood: neutral
+   Started: 20/12/2025, 13.57.19
+
+7. ID: cmjdxqaaq001p19fnxcslakjj
+   Customer: web_925f0500-3157-484a-af3c-0109c601a4eb
+   Messages: 4
+   Mood: neutral
+   Started: 20/12/2025, 13.46.28
+
+8. ID: cmjdxda34001h19fnkvh47p6e
+   Customer: web_13fc43fc-84f2-4d68-8f6b-eea606e0bd79
+   Messages: 2
+   Mood: neutral
+   Started: 20/12/2025, 13.36.21
+
+9. ID: cmjdwxmsq000w19fn276tn0m8
+   Customer: web_bdac1cf9-e1ba-47db-ac03-ed0341c94c64
+   Messages: 8
+   Mood: neutral
+   Started: 20/12/2025, 13.24.11
+
+10. ID: cmjdwjf5k000f19fnykpb4do6
+   Customer: web_53213872-95c3-44de-9263-cf3e471246f6
+   Messages: 2
+   Mood: neutral
+   Started: 20/12/2025, 13.13.08
+
+... and 9 more
+

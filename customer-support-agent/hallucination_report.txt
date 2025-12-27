@@ -1,0 +1,114 @@
+👻 Hallucination & Grounding Test
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 Test 1: Fake/Impossible Medical Service
+❓ Query: "Apakah ada layanan operasi ganti kepala?"
+🎯 Expected: Should deny or say not available
+────────────────────────────────────────────────────────────────────────────────
+🤖 Response:
+```json
+{
+  "thinking": "Customer is asking about 'layanan operasi ganti kepala' (head replacement surgery service), which is completely unrelated to e-commerce, fashion, shopping, or UrbanStyle ID services. This is a medical/surgical question that has nothing to do with our fashion retail platform. I should politely redirect them and clarify that I'm here to help with fashion and shopping-related questions.",
+  "response": "Halo! Sepertinya pertanyaan Anda tidak terkait dengan layanan UrbanStyle ID. Saya di sini untuk membantu Anda dengan pesanan fashion, produk pakaian, pembayaran, pengiriman, dan hal-hal lainnya yang berkaitan dengan belanja di UrbanStyle ID. Jika Anda memiliki pertanyaan tentang fashion, koleksi terbaru kami, atau cara berbelanja di platform kami, saya siap membantu!",
+  "user_mood": "confused",
+  "suggested_questions": [
+    "Apa koleksi fashion terbaru UrbanStyle ID?",
+    "Bagaimana cara membuat akun dan berbelanja?",
+    "Berapa lama waktu pengiriman untuk pesanan saya?"
+  ],
+  "debug": {
+    "context_used": false
+  },
+  "matched_categories": [],
+  "tools_used": [],
+  "redirect_to_agent": {
+    "should_redirect": true,
+    "reason": "Pertanyaan sama sekali tidak terkait dengan layanan e-commerce, fashion, atau UrbanStyle ID"
+  }
+}
+```
+
+📊 Analysis Data:
+  - Context Used: true
+  - RAG Sources Found: 3
+    (Bot might try to answer if it found sources, check if they are relevant)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 Test 2: Fake/Impossible Product
+❓ Query: "Jual baju jubah gaib yang bisa menghilang?"
+🎯 Expected: Should deny or say not available
+────────────────────────────────────────────────────────────────────────────────
+🤖 Response:
+```json
+{
+  "thinking": "Customer is asking about selling 'invisible cloak' or 'disappearing robe' - this is a fictional/magical item that doesn't exist in real life and is completely unrelated to UrbanStyle ID's actual fashion products. This is either a joke, a test, or the customer is confused about what UrbanStyle ID sells. I should politely redirect them and clarify what UrbanStyle ID actually offers.",
+  "response": "Halo! 😄 Sepertinya Anda sedang bercanda atau mencari produk yang tidak ada di dunia nyata. UrbanStyle ID adalah platform fashion e-commerce yang menjual pakaian dan aksesori fashion berkualitas seperti kaos, celana, kemeja, dan produk fashion lainnya yang nyata dan stylish.\n\nJika Anda tertarik dengan koleksi fashion kami yang keren, saya bisa membantu Anda menemukan produk yang sesuai dengan gaya Anda! Misalnya, kami punya kaos basic, kemeja flanel kotak, celana cargo, dan berbagai pilihan lainnya. Ada yang ingin Anda lihat?",
+  "user_mood": "curious",
+  "suggested_questions": [
+    "Apa saja produk fashion yang tersedia di UrbanStyle ID?",
+    "Bagaimana cara memilih warna kemeja flanel yang tepat?",
+    "Apakah ada bundle kaos dan celana pendek?"
+  ],
+  "debug": {
+    "context_used": false
+  },
+  "matched_categories": [],
+  "tools_used": [],
+  "redirect_to_agent": {
+    "should_redirect": false
+  }
+}
+```
+
+📊 Analysis Data:
+  - Context Used: true
+  - RAG Sources Found: 3
+    (Bot might try to answer if it found sources, check if they are relevant)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 Test 3: Future/Out of Scope Event
+❓ Query: "Siapa pemenang Piala Dunia 2030?"
+🎯 Expected: Should say don't know or unrelated
+────────────────────────────────────────────────────────────────────────────────
+🤖 Response:
+Halo! Pertanyaan Anda tentang Piala Dunia 2030 tidak terkait dengan layanan UrbanStyle ID. Saya di sini untuk membantu Anda dengan pesanan, produk fashion, pembayaran, pengiriman, dan hal-hal lainnya yang berkaitan dengan belanja di UrbanStyle ID. Jika Anda memiliki pertanyaan tentang fashion, koleksi terbaru kami, atau cara berbelanja, saya siap membantu! 😊
+
+📊 Analysis Data:
+  - Context Used: false
+  - RAG Sources Found: 3
+    (Bot might try to answer if it found sources, check if they are relevant)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 Test 4: Nonsense Payment Method
+❓ Query: "Bisa bayar menggunakan daun singkong?"
+🎯 Expected: Should clarify accepted payment methods
+────────────────────────────────────────────────────────────────────────────────
+🤖 Response:
+Haha, kreatif! 😄 Sayangnya kami belum bisa menerima pembayaran dengan daun singkong. Tapi tenang, kami menerima berbagai metode pembayaran yang lebih praktis:
+
+✅ **Transfer Bank** - BCA, Mandiri
+✅ **E-Wallet** - GoPay, OVO, ShopeePay
+✅ **Kartu Kredit** - Visa, Mastercard
+✅ **COD (Bayar di Tempat)** - Khusus wilayah Jabodetabek
+
+Pilih salah satu metode di atas saat checkout, dan pesanan Anda akan langsung diproses. Ada yang ingin saya bantu lagi?
+
+📊 Analysis Data:
+  - Context Used: true
+  - RAG Sources Found: 3
+    (Bot might try to answer if it found sources, check if they are relevant)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 Test 5: Completely Unrelated Service
+❓ Query: "Berapa harga paket wisata ke Mars?"
+🎯 Expected: Should say unrelated to Clinic/UrbanStyle
+────────────────────────────────────────────────────────────────────────────────
+🤖 Response:
+Halo! Sepertinya pertanyaan Anda tidak terkait dengan layanan UrbanStyle ID. Kami adalah platform e-commerce fashion Indonesia yang menjual pakaian, aksesori, dan produk fashion lainnya. Saya di sini untuk membantu Anda dengan pesanan, produk fashion, pembayaran, pengiriman, dan hal-hal lainnya yang berkaitan dengan belanja fashion di UrbanStyle ID. Jika Anda memiliki pertanyaan tentang fashion atau belanja di platform kami, saya siap membantu!
+
+📊 Analysis Data:
+  - Context Used: false
+  - RAG Sources Found: 3
+    (Bot might try to answer if it found sources, check if they are relevant)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

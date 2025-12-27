@@ -87,8 +87,40 @@ export async function POST(req: Request) {
   const measureTime = (label: string) => logTimestamp(label, apiStart);
 
   // Extract data from the request body
-  let { messages, model, knowledgeBaseId, sessionId } = await req.json();
-  const latestMessage = messages[messages.length - 1].content;
+  let { messages, model, knowledgeBaseId, sessionId, businessContext } = await req.json();
+
+  // Validate messages array
+  if (!messages || messages.length === 0) {
+    console.error("❌ No messages provided in request");
+    return new Response(
+      JSON.stringify({
+        response: "Maaf, tidak ada pesan yang diterima.",
+        thinking: "No messages in request",
+        user_mood: "confused",
+        suggested_questions: [],
+        debug: { context_used: false },
+        redirect_to_agent: { should_redirect: false },
+      }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const latestMessage = messages[messages.length - 1]?.content || '';
+
+  if (!latestMessage) {
+    console.error("❌ Latest message has no content");
+    return new Response(
+      JSON.stringify({
+        response: "Maaf, pesan Anda tidak dapat dibaca.",
+        thinking: "Latest message has no content",
+        user_mood: "confused",
+        suggested_questions: [],
+        debug: { context_used: false },
+        redirect_to_agent: { should_redirect: false },
+      }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
   // Validate sessionId for database persistence
   if (!sessionId) {
@@ -192,8 +224,33 @@ export async function POST(req: Request) {
   `
     : "";
 
-  // Change the system prompt based on knowledge base
+  // Change the system prompt based on knowledge base or business context
   const getSystemPromptIntro = () => {
+    // BOOKING SYSTEM: If businessContext is provided, customize based on business type
+    if (businessContext) {
+      const { businessName, businessType } = businessContext;
+
+      if (businessType === "BEAUTY_CLINIC") {
+        return `You are acting as a customer support assistant for ${businessName}, an Indonesian beauty clinic. You are chatting with customers who need help with booking treatments, checking availability, rescheduling appointments, payment, and other clinic-related questions.
+
+  **Important Guidelines:**
+  - Respond in the SAME LANGUAGE as the customer's question (Indonesian or English)
+  - Be friendly, helpful, and professional with a warm tone suitable for beauty services
+  - Customers are primarily Indonesian, so be culturally aware and use appropriate greetings
+  - Help customers with booking facial treatments, laser treatments, and other beauty services
+  - Guide them through the booking process, payment options (VA, GoPay, QRIS, OVO, ShopeePay), and appointment management`;
+      } else if (businessType === "TRAVEL_AGENCY") {
+        return `You are acting as a customer support assistant for ${businessName}, an Indonesian travel agency. You are chatting with customers who need help with booking tours, checking availability, managing bookings, payment, and other travel-related questions.
+
+  **Important Guidelines:**
+  - Respond in the SAME LANGUAGE as the customer's question (Indonesian or English)
+  - Be friendly, helpful, and enthusiastic with a warm tone suitable for travel services
+  - Customers are primarily Indonesian, so be culturally aware and use appropriate greetings
+  - Help customers with booking day tours, tour packages, and travel services
+  - Guide them through the booking process, payment options (VA, GoPay, QRIS, OVO, ShopeePay), and booking management`;
+      }
+    }
+
     if (knowledgeBaseId === "clinic") {
       return `You are acting as a customer support assistant for Klinik Kecantikan & Gigi (Beauty & Dental Clinic), an Indonesian healthcare facility. You are chatting with patients/customers who need help with beauty treatments, dental services, appointments, pricing, and other clinic-related questions.
 
@@ -228,11 +285,33 @@ export async function POST(req: Request) {
 
   **Available Tools:**
   You have access to tools for real-time information. When needed:
+
+  ${businessContext ? `
+  **Booking System Tools (Available for ${businessContext.businessName}):**
+  - Use "list_services" to show available treatments/tours and pricing
+  - Use "check_availability" to check available time slots for a service on a specific date
+  - Use "create_booking" to create a new booking (ONLY after confirming all details with customer)
+  - Use "get_booking_details" to get details of a specific booking by booking number
+  - Use "list_customer_bookings" to show all customer's bookings
+  - Use "reschedule_booking" to change booking date/time (check availability first!)
+  - Use "cancel_booking" to cancel a booking
+  - Use "create_payment_link" to generate payment link for Midtrans (VA/GoPay/QRIS/OVO/ShopeePay)
+  - Use "check_payment_status" to check if booking payment has been completed
+
+  **Important Notes for Booking:**
+  - Business ID is: ${businessContext.businessId}
+  - ALWAYS check availability before creating or rescheduling bookings
+  - Confirm all booking details with customer before creating: date, time, service, name, phone, email
+  - After creating booking, offer to create payment link
+  - Payment options: BANK_TRANSFER (BCA/BNI/BRI/Mandiri/Permata VA), GOPAY, QRIS, OVO, SHOPEEPAY
+  ` : `
+  **E-commerce Tools:**
   - Use "track_order" to get actual shipping status and tracking numbers
   - Use "verify_payment" to check real payment status and provide payment instructions
   - Use "check_inventory" to check product stock availability
   - Use "get_order_summary" to show customer's order history and spending
   - Use "cancel_order" to cancel pending orders (only PENDING or PROCESSING status)
+  `}
 
   ${categoriesContext}
 

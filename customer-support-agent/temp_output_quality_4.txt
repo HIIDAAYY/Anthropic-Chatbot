@@ -1,0 +1,29 @@
+Loading .env from: C:\Users\aditm\claude-quickstarts\customer-support-agent\.env.local
+[dotenv@17.2.3] injecting env (21) from .env.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+ANTHROPIC_API_KEY loaded: YES (sk-an...)
+
+================================================================================
+🎓 Manual Learning Script
+================================================================================
+
+
+📊 Testing quality evaluation for: cmjgpx3ik0002z5ecotmywuxs
+
+Customer: whatsapp:+6289629778651
+Messages: 15
+Status: ACTIVE
+
+Evaluating quality...
+
+✅ Evaluated conversation cmjgpx3ik0002z5ecotmywuxs: score=0.45
+Overall Score: NaN%
+Eligible: false
+Reason: Conversation shows significant issues: bot provides information about a beauty clinic that contradicts the initial context (UrbanStyle ID is a fashion e-commerce platform), contains incomplete answers to direct questions, and demonstrates inconsistent behavior by first redirecting off-topic questions then providing detailed clinic information. Multiple customer questions remain unresolved.
+
+Detailed Scores:
+  Resolution:     30.0%
+  Clarity:        60.0%
+  Accuracy:       35.0%
+  Reusability:    40.0%
+  Professionalism: 70.0%
+
