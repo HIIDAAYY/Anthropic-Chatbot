@@ -108,6 +108,8 @@ export async function POST(req: NextRequest) {
           model: 'claude-haiku-4-5-20251001', // Use Haiku for fast responses
           knowledgeBaseId: detectedKB, // AUTO-DETECTED! (clinic or undefined for UrbanStyle)
           businessContext, // Pass business context to chat API
+          customerId: session.customerId, // IMPORTANT: Pass customerId for tool execution (booking, etc)
+          sessionId: session.conversationId, // Session ID for persistence
         }),
       }
     );

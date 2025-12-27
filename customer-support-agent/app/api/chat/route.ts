@@ -87,7 +87,7 @@ export async function POST(req: Request) {
   const measureTime = (label: string) => logTimestamp(label, apiStart);
 
   // Extract data from the request body
-  let { messages, model, knowledgeBaseId, sessionId, businessContext } = await req.json();
+  let { messages, model, knowledgeBaseId, sessionId, businessContext, customerId } = await req.json();
 
   // Validate messages array
   if (!messages || messages.length === 0) {
@@ -569,13 +569,20 @@ export async function POST(req: Request) {
       console.log(`📦 Found ${toolUses.length} tool(s) to execute`);
 
       // Get or create customer for tool execution
-      // For demo purposes, use the seeded customer phone number
-      // In production, you'd use the logged-in user's actual phone number
-      const DEMO_PHONE = "081234567890";
-      const customer = await getOrCreateCustomer(DEMO_PHONE);
+      let executionCustomerId = customerId;
+
+      if (!executionCustomerId) {
+        // Fallback: For demo purposes, use the seeded customer phone number
+        // In production, you'd use the logged-in user's actual phone number
+        const DEMO_PHONE = "081234567890";
+        const customer = await getOrCreateCustomer(DEMO_PHONE);
+        executionCustomerId = customer.id;
+      }
+
+      console.log(`🔑 Using customerId for tool execution: ${executionCustomerId}`);
 
       // Execute tools
-      const toolResults = await executeToolUse(toolUses, customer.id);
+      const toolResults = await executeToolUse(toolUses, executionCustomerId);
 
       // Format tool results for API
       const toolResultContent = formatToolResults(toolResults);
