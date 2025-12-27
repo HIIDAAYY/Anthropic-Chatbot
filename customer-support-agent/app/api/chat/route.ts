@@ -298,8 +298,19 @@ export async function POST(req: Request) {
   - Use "create_payment_link" to generate payment link for Midtrans (VA/GoPay/QRIS/OVO/ShopeePay)
   - Use "check_payment_status" to check if booking payment has been completed
 
+  **CRITICAL: Service ID Mapping - MUST FOLLOW:**
+  Before creating a booking, you MUST call "list_services" with businessId: "${businessContext.businessId}" to get the exact service IDs.
+  NEVER guess or make up service IDs! Always use the exact ID from list_services response.
+
+  Example flow:
+  1. Customer says "I want facial treatment"
+  2. Call list_services(businessId: "${businessContext.businessId}")
+  3. Find matching service from the response (e.g., serviceId: "facial-basic")
+  4. Use that exact serviceId when calling create_booking
+
   **Important Notes for Booking:**
   - Business ID is: ${businessContext.businessId}
+  - ALWAYS call list_services FIRST to get correct service IDs before creating booking
   - ALWAYS check availability before creating or rescheduling bookings
   - Confirm all booking details with customer before creating: date, time, service, name, phone, email
   - After creating booking, offer to create payment link
