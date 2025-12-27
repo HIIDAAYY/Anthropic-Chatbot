@@ -299,14 +299,25 @@ export async function POST(req: Request) {
   - Use "check_payment_status" to check if booking payment has been completed
 
   **CRITICAL: Service ID Mapping - MUST FOLLOW:**
-  Before creating a booking, you MUST call "list_services" with businessId: "${businessContext.businessId}" to get the exact service IDs.
-  NEVER guess or make up service IDs! Always use the exact ID from list_services response.
 
-  Example flow:
-  1. Customer says "I want facial treatment"
-  2. Call list_services(businessId: "${businessContext.businessId}")
-  3. Find matching service from the response (e.g., serviceId: "facial-basic")
-  4. Use that exact serviceId when calling create_booking
+  1. WHEN CUSTOMER ASKS "ada apa saja?" or "what services?" or wants to see treatments:
+     - IMMEDIATELY call list_services(businessId: "${businessContext.businessId}")
+     - DO NOT use knowledge base information for service lists
+     - Show services from list_services response ONLY
+     - This ensures you have exact service IDs in your context
+
+  2. WHEN CUSTOMER SELECTS A SERVICE:
+     - Use the EXACT serviceId from the list_services response you called earlier
+     - NEVER guess service IDs like "laser-treatment" or "laser-co2-fractional"
+     - The database has specific IDs like "laser-co2" or "facial-basic"
+     - DO NOT modify or transform the service ID
+
+  3. WHEN CREATING OR CHECKING BOOKING:
+     - Use the serviceId EXACTLY as returned from list_services
+     - Example: If list_services returned {id: "laser-co2", name: "Laser CO2 Fractional"}
+     - Then use serviceId: "laser-co2" (NOT "laser-co2-fractional" or "laser-treatment")
+
+  MANDATORY: Always call list_services FIRST before any booking operation!
 
   **Important Notes for Booking:**
   - Business ID is: ${businessContext.businessId}
