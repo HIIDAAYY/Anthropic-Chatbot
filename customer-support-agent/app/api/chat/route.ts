@@ -139,6 +139,34 @@ export async function POST(req: Request) {
     }
   }
 
+  // Auto-detect business context for web chat (if not already provided from WhatsApp webhook)
+  if (!businessContext && knowledgeBaseId === "clinic") {
+    try {
+      // Get the default clinic business for web chat
+      const { PrismaClient } = await import("@prisma/client");
+      const prisma = new PrismaClient();
+
+      const clinic = await prisma.business.findFirst({
+        where: { type: "BEAUTY_CLINIC" },
+        include: { settings: true },
+      });
+
+      if (clinic) {
+        businessContext = {
+          businessId: clinic.id,
+          businessName: clinic.name,
+          businessType: clinic.type,
+          settings: clinic.settings,
+        };
+        console.log(`🏥 Auto-detected business for web: ${clinic.name}`);
+      }
+
+      await prisma.$disconnect();
+    } catch (error) {
+      console.error("Error auto-detecting business:", error);
+    }
+  }
+
   // Prepare debug data
   const MAX_DEBUG_LENGTH = 1000;
   const debugData = sanitizeHeaderValue(
