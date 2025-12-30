@@ -14,100 +14,10 @@ export interface BotAction {
 /**
  * Anthropic Tool Definitions for native tool use
  * These are passed to the Claude API to enable tool calling
+ *
+ * BOOKING SYSTEM TOOLS (Clinic & Travel Agency)
  */
 export const BOT_TOOLS: Anthropic.Tool[] = [
-  {
-    name: "track_order",
-    description:
-      "Melacak status pengiriman pesanan pelanggan. Gunakan untuk menjawab pertanyaan seperti 'Mana pesanan saya?' atau 'Kapan paket sampai?'",
-    input_schema: {
-      type: "object",
-      properties: {
-        orderNumber: {
-          type: "string",
-          description:
-            "Nomor pesanan pelanggan (contoh: ORD-2025-001). Harus ditanyakan ke customer jika tidak ada.",
-        },
-      },
-      required: ["orderNumber"],
-    },
-  },
-  {
-    name: "cancel_order",
-    description:
-      "Membatalkan pesanan yang masih berstatus PENDING atau PROCESSING. Tidak bisa membatalkan pesanan yang sudah SHIPPED atau DELIVERED.",
-    input_schema: {
-      type: "object",
-      properties: {
-        orderNumber: {
-          type: "string",
-          description: "Nomor pesanan yang akan dibatalkan",
-        },
-        reason: {
-          type: "string",
-          description: "Alasan pembatalan (opsional)",
-        },
-      },
-      required: ["orderNumber"],
-    },
-  },
-  {
-    name: "get_order_summary",
-    description:
-      "Mendapatkan ringkasan pesanan pelanggan termasuk total pesanan, pesanan aktif, dan total pengeluaran. Tidak memerlukan input khusus selain customerId dari session.",
-    input_schema: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
-  },
-  {
-    name: "verify_payment",
-    description:
-      "Memverifikasi status pembayaran pesanan. Menampilkan apakah sudah dibayar, metode pembayaran, dan instruksi pembayaran jika belum dibayar.",
-    input_schema: {
-      type: "object",
-      properties: {
-        orderNumber: {
-          type: "string",
-          description: "Nomor pesanan yang ingin dicek pembayarannya",
-        },
-        detailed: {
-          type: "boolean",
-          description:
-            "Tampilkan detail pembayaran lengkap (opsional, default: false)",
-        },
-      },
-      required: ["orderNumber"],
-    },
-  },
-  {
-    name: "check_inventory",
-    description:
-      "Mengecek ketersediaan stok produk secara real-time. Gunakan untuk menjawab pertanyaan seperti 'Apakah produk X tersedia?' atau 'Berapa stok kaos ukuran M?'",
-    input_schema: {
-      type: "object",
-      properties: {
-        productIds: {
-          type: "array",
-          items: {
-            type: "string",
-          },
-          description:
-            "ID produk yang ingin dicek (contoh: ['KAOS-001', 'CELANA-001'])",
-        },
-        quantities: {
-          type: "array",
-          items: {
-            type: "number",
-          },
-          description:
-            "Jumlah yang ingin dipesan (opsional, untuk validasi apakah bisa order dengan qty ini)",
-        },
-      },
-      required: ["productIds"],
-    },
-  },
   // ============================================
   // BOOKING SYSTEM TOOLS
   // ============================================
@@ -304,12 +214,11 @@ export const BOT_TOOLS: Anthropic.Tool[] = [
 ];
 
 /**
- * Execute a bot action by calling the appropriate API endpoint
+ * Execute a bot action by calling the appropriate service function directly
+ * This avoids HTTP fetch issues (405, network errors) within the same server
+ *
+ * BOOKING SYSTEM ONLY - E-commerce tools removed
  */
-import { getShippingTracking } from "@/app/lib/shipping-service";
-import { getOrderByNumber, cancelOrder, getOrderSummary } from "@/app/lib/order-service";
-import { verifyPayment } from "@/app/lib/payment-service";
-import { checkMultipleProductsStock } from "@/app/lib/inventory-service";
 import {
   checkAvailability,
   createBooking,
@@ -332,10 +241,6 @@ export async function executeBotAction(action: BotAction): Promise<any> {
   const { tool, input } = action;
   const {
     customerId,
-    orderNumber,
-    productIds,
-    quantities,
-    reason,
     // Booking-related parameters
     serviceId,
     date,
@@ -349,6 +254,7 @@ export async function executeBotAction(action: BotAction): Promise<any> {
     bookingNumber,
     newDate,
     newTime,
+    reason,
     category,
     paymentType,
     bank,
@@ -358,44 +264,6 @@ export async function executeBotAction(action: BotAction): Promise<any> {
     console.log(`🔧 Executing tool '${tool}' directly via service call`);
 
     switch (tool) {
-      // ============================================
-      // E-COMMERCE TOOLS
-      // ============================================
-      case "track_order":
-        if (!customerId || !orderNumber) {
-          return { success: false, error: "customerId dan orderNumber diperlukan" };
-        }
-        // Logic from /api/bot/order/track
-        const orderResult = await getOrderByNumber(customerId, orderNumber);
-        if (!orderResult.success) {
-          return { success: false, error: "Pesanan tidak ditemukan. Mohon periksa kembali nomor pesanan Anda." };
-        }
-        const trackingResult = await getShippingTracking(customerId, orderNumber);
-        if (!trackingResult.success) {
-          return {
-            success: false,
-            error: trackingResult.error || "Informasi pengiriman belum tersedia",
-            orderStatus: orderResult.order?.status
-          };
-        }
-        return {
-          success: true,
-          tracking: trackingResult.tracking,
-          orderStatus: orderResult.order?.status
-        };
-
-      case "cancel_order":
-        return await cancelOrder(customerId, orderNumber, reason);
-
-      case "get_order_summary":
-        return await getOrderSummary(customerId);
-
-      case "verify_payment":
-        return await verifyPayment(customerId, orderNumber);
-
-      case "check_inventory":
-        return await checkMultipleProductsStock(productIds);
-
       // ============================================
       // BOOKING SYSTEM TOOLS
       // ============================================

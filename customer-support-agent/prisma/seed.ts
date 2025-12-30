@@ -1,3 +1,11 @@
+import { config } from "dotenv";
+import { resolve } from "path";
+
+// Load .env.local
+const envPath = resolve(__dirname, "../.env.local");
+console.log(`Loading .env from: ${envPath}`);
+config({ path: envPath, override: true });
+
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -110,13 +118,17 @@ async function main() {
   // Beauty Clinic
   const beautyClinic = await prisma.business.upsert({
     where: { phoneNumber: "whatsapp:+6281234567891" },
-    update: {},
+    update: {
+      name: "Klinik Glow Aesthetics Jakarta",
+      email: "hello@glowaesthetics.id",
+      address: "Jl. Senopati Raya No. 45, Kebayoran Baru, Jakarta Selatan 12190",
+    },
     create: {
-      name: "Sozo Skin Clinic",
+      name: "Klinik Glow Aesthetics Jakarta",
       type: "BEAUTY_CLINIC",
       phoneNumber: "whatsapp:+6281234567891",
-      email: "info@sozoskin.com",
-      address: "Jl. Sudirman No. 123, Jakarta Selatan",
+      email: "hello@glowaesthetics.id",
+      address: "Jl. Senopati Raya No. 45, Kebayoran Baru, Jakarta Selatan 12190",
       businessHours: {
         mon: ["09:00-17:00"],
         tue: ["09:00-17:00"],
@@ -411,7 +423,7 @@ async function main() {
           scheduledFor: new Date("2025-12-27T10:00:00"),
           method: "WHATSAPP",
           status: "PENDING",
-          message: "Reminder: Anda memiliki appointment besok jam 10:00 di Sozo Skin Clinic untuk Facial Treatment Basic",
+          message: "Reminder: Anda memiliki appointment besok jam 10:00 di Klinik Glow Aesthetics Jakarta untuk Facial Treatment Basic",
         },
       },
     },
@@ -436,7 +448,7 @@ async function main() {
   console.log(`   Sample Booking: ${sampleBooking.bookingNumber}`);
   console.log("=" .repeat(60));
   console.log("\n💡 WhatsApp Numbers:");
-  console.log(`   Sozo Skin Clinic: ${beautyClinic.phoneNumber}`);
+  console.log(`   Klinik Glow Aesthetics: ${beautyClinic.phoneNumber}`);
   console.log(`   Bali Adventure Tours: ${travelAgency.phoneNumber}`);
   console.log(`   Demo Customer: ${customer.phoneNumber}\n`);
 }

@@ -160,64 +160,43 @@ export async function retrieveContextFromBedrock(
 
 /**
  * Auto-detect knowledge base based on query content
- * Returns 'clinic' for healthcare-related queries, undefined for UrbanStyle/default
+ * Returns 'clinic' for healthcare-related queries, undefined if no clinic keywords detected (no default KB)
  */
 export function detectKnowledgeBase(query: string): string | undefined {
   const lowerQuery = query.toLowerCase();
 
-  // Keywords untuk Clinic (healthcare, beauty, dental)
+  // Keywords untuk Clinic - ONLY clinic, no other business types
   const clinicKeywords = [
     'klinik', 'clinic', 'dokter', 'doctor', 'gigi', 'dental', 'teeth', 'tooth',
     'perawatan wajah', 'facial', 'skin', 'kulit', 'beauty treatment',
     'botox', 'filler', 'whitening', 'pemutihan', 'scaling', 'bleaching',
     'cabut gigi', 'tambal', 'filling', 'implant', 'veneer', 'crown', 'behel', 'kawat gigi', 'braces',
-    'konsultasi dokter', 'appointment', 'janji temu', 'jadwal praktek', 'jadwal dokter',
+    'konsultasi dokter', 'appointment', 'janji temu', 'jadwal praktek', 'jadwal dokter', 'booking',
     'acne', 'jerawat', 'komedo', 'pori-pori', 'flek hitam', 'aging', 'keriput', 'wrinkle',
     'laser', 'peeling', 'mesotherapy', 'microdermabrasi', 'carbon laser',
     'sakit gigi', 'gusi', 'gum', 'karang gigi', 'gigi berlubang', 'rontgen gigi',
     'perawatan kecantikan', 'treatment', 'terapi', 'prosedur medis', 'estetika'
   ];
 
-  // Keywords untuk UrbanStyle (e-commerce, fashion)
-  const urbanstyleKeywords = [
-    'produk', 'product', 'baju', 'clothes', 'clothing', 'fashion', 'order', 'pesan',
-    'pesanan', 'tracking', 'resi', 'pengiriman', 'shipping', 'ongkir', 'delivery',
-    'payment', 'pembayaran', 'transfer', 'cod', 'cash on delivery', 'bayar',
-    'return', 'retur', 'refund', 'tukar barang', 'ukuran', 'size', 'warna', 'color', 'colour',
-    'stock', 'stok', 'ready', 'available', 'pre-order', 'katalog', 'catalog',
-    'belanja', 'shopping', 'cart', 'keranjang', 'checkout', 'add to cart',
-    'kemeja', 'shirt', 'kaos', 't-shirt', 'celana', 'pants', 'jeans', 'dress', 'rok', 'skirt',
-    'jaket', 'jacket', 'sweater', 'hoodie', 'blazer', 'jas', 'sepatu', 'shoes', 'tas', 'bag',
-    'aksesoris', 'accessories', 'topi', 'hat', 'belt', 'ikat pinggang', 'dompet', 'wallet',
-    'diskon', 'discount', 'promo', 'sale', 'voucher', 'kupon', 'cashback',
-    'model', 'trend', 'style', 'koleksi', 'collection', 'new arrival', 'terbaru'
-  ];
-
-  // Count keyword matches
   const clinicMatches = clinicKeywords.filter(kw => lowerQuery.includes(kw)).length;
-  const urbanstyleMatches = urbanstyleKeywords.filter(kw => lowerQuery.includes(kw)).length;
 
   console.log(`🔍 KB Detection - Query: "${query.slice(0, 50)}..."`);
-  console.log(`   Clinic matches: ${clinicMatches}, UrbanStyle matches: ${urbanstyleMatches}`);
+  console.log(`   Clinic matches: ${clinicMatches}`);
 
-  // Return based on higher match count
-  if (clinicMatches > urbanstyleMatches) {
+  if (clinicMatches > 0) {
     console.log('🏥 Auto-detected: CLINIC');
     return 'clinic';
-  } else if (urbanstyleMatches > clinicMatches) {
-    console.log('👔 Auto-detected: URBANSTYLE (default)');
-    return undefined; // undefined = default UrbanStyle (no filter)
   }
 
-  // If tied or no matches, default to UrbanStyle
-  console.log('❓ No clear detection, using default: URBANSTYLE');
-  return undefined; // Default to UrbanStyle
+  // NO DEFAULT KB - return undefined if no clinic match
+  console.log('❌ No clinic keywords detected - no KB used');
+  return undefined;
 }
 
 /**
  * Main retrieve context function - auto-selects between Pinecone (with optional filter) and Bedrock
- * - knowledgeBaseId="" or undefined: Use Pinecone for all (UrbanStyle)
  * - knowledgeBaseId="clinic": Use Pinecone filtered to clinic sources
+ * - knowledgeBaseId=undefined: NO KB used (user must ask clinic questions)
  * - knowledgeBaseId=other: Use AWS Bedrock
  */
 export async function retrieveContext(
@@ -235,10 +214,10 @@ export async function retrieveContext(
     return retrieveContextFromPinecone(query, n, "clinic");
   }
 
-  // Use Pinecone by default (if no knowledgeBaseId provided or empty)
+  // NO DEFAULT KB - if no knowledgeBaseId, return empty context
   if (!knowledgeBaseId) {
-    console.log("📍 Using Pinecone for UrbanStyle RAG");
-    return retrieveContextFromPinecone(query, n); // No filter = all sources
+    console.log("❌ No KB specified - returning empty context");
+    return { context: "", isRagWorking: false, ragSources: [] };
   }
 
   // Use Bedrock if knowledgeBaseId is provided (for other knowledge bases)
