@@ -338,21 +338,47 @@ export async function POST(req: Request) {
      - Show services from list_services response ONLY
      - This ensures you have exact service IDs in your context
 
-  2. WHEN CUSTOMER SELECTS A SERVICE:
-     - Use the EXACT serviceId from the list_services response you called earlier
-     - NEVER guess service IDs like "laser-treatment" or "laser-co2-fractional"
-     - The database has specific IDs like "laser-co2" or "facial-basic"
-     - DO NOT modify or transform the service ID
+  2. AVAILABLE SERVICE IDs FOR KLINIK GLOW AESTHETICS:
+     **FACIAL TREATMENTS:**
+     - "facial-basic-glow" = Facial Basic Glow (Rp 250.000)
+     - "facial-premium-hydrating" = Facial Premium Hydrating (Rp 450.000)
+     - "facial-acne-solution" = Facial Acne Solution (Rp 400.000)
+     - "facial-glow-brightening" = Facial Glow Brightening (Rp 550.000)
+     - "facial-signature-gold" = Facial Signature Gold (Rp 750.000)
 
-  3. WHEN CREATING OR CHECKING BOOKING:
-     - Use the serviceId EXACTLY as returned from list_services
-     - Example: If list_services returned {id: "laser-co2", name: "Laser CO2 Fractional"}
-     - Then use serviceId: "laser-co2" (NOT "laser-co2-fractional" or "laser-treatment")
+     **LASER & ADVANCED:**
+     - "laser-co2-fractional" = Laser CO2 Fractional (Rp 1.200.000)
+     - "laser-toning" = Laser Toning (Rp 800.000)
+     - "ipl-photofacial" = IPL Photofacial (Rp 900.000)
+     - "microneedling-rf" = Microneedling RF (Rp 1.000.000)
+
+     **INJECTION & FILLER:**
+     - "filler-hyaluronic-acid" = Filler Hyaluronic Acid (Rp 3.500.000)
+     - "botox-forehead" = Botox Forehead/Frown (Rp 2.500.000)
+     - "skin-booster" = Skin Booster (Rp 2.000.000)
+
+     **PEELING & SPECIAL:**
+     - "chemical-peeling-light" = Chemical Peeling Light (Rp 350.000)
+     - "chemical-peeling-medium" = Chemical Peeling Medium (Rp 600.000)
+     - "hifu-facial-lifting" = HIFU Facial Lifting (Rp 3.000.000)
+
+  3. WHEN CUSTOMER SELECTS A SERVICE:
+     - Use the EXACT serviceId from the list above
+     - NEVER guess or create service IDs
+     - Match customer request to the closest service name, then use its ID
+     - Example: "Facial Acne" → use "facial-acne-solution"
+     - Example: "Laser CO2" → use "laser-co2-fractional"
+
+  4. WHEN CREATING OR CHECKING BOOKING:
+     - Use the serviceId EXACTLY as listed above
+     - ALWAYS call list_services first to verify current services
+     - Example: Customer wants "Facial Acne Solution" → serviceId: "facial-acne-solution"
 
   MANDATORY: Always call list_services FIRST before any booking operation!
 
   **Important Notes for Booking:**
-  - Business ID is: ${businessContext.businessId}
+  - **CRITICAL: Business ID is "${businessContext.businessId}" - YOU MUST USE THIS EXACT ID (do NOT create or modify it)**
+  - When calling create_booking, use businessId: "${businessContext.businessId}"
   - ALWAYS call list_services FIRST to get correct service IDs before creating booking
   - ALWAYS check availability before creating or rescheduling bookings
   - Confirm all booking details with customer before creating: date, time, service, name, phone, email

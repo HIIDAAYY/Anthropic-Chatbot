@@ -53,7 +53,7 @@ export const BOT_TOOLS: Anthropic.Tool[] = [
       properties: {
         businessId: {
           type: "string",
-          description: "ID bisnis tempat booking dilakukan",
+          description: "ID bisnis tempat booking dilakukan. MUST use the exact businessId provided in the system context (e.g., 'cmjnua0xe000axdh3ztv3cgfo'). DO NOT generate or create your own businessId.",
         },
         serviceId: {
           type: "string",
@@ -274,7 +274,25 @@ export async function executeBotAction(action: BotAction): Promise<any> {
         return await checkAvailability(serviceId, date, preferredTime);
 
       case "create_booking":
+        console.log('🔍 create_booking called with params:', {
+          customerId,
+          businessId,
+          serviceId,
+          date,
+          time,
+          customerName,
+          customerPhone,
+        });
         if (!customerId || !businessId || !serviceId || !date || !time || !customerName || !customerPhone) {
+          console.error('❌ Missing required parameters:', {
+            hasCustomerId: !!customerId,
+            hasBusinessId: !!businessId,
+            hasServiceId: !!serviceId,
+            hasDate: !!date,
+            hasTime: !!time,
+            hasCustomerName: !!customerName,
+            hasCustomerPhone: !!customerPhone,
+          });
           return {
             success: false,
             error: "customerId, businessId, serviceId, date, time, customerName, dan customerPhone diperlukan"

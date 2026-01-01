@@ -93,7 +93,11 @@ export async function checkAvailability(
     }
 
     // Check if date is in the past
-    const bookingDate = new Date(date);
+    // Parse date string as local date (not UTC) to avoid timezone issues
+    const [year, month, day] = date.split("-").map(Number);
+    const bookingDate = new Date(year, month - 1, day); // month is 0-indexed
+    bookingDate.setHours(0, 0, 0, 0);
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 

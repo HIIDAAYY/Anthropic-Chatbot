@@ -191,36 +191,284 @@ async function main() {
   // ============================================
   console.log("\n💆 Creating services...");
 
-  // Beauty Clinic Services
-  const facialService = await prisma.service.upsert({
-    where: { id: "facial-basic" },
-    update: {},
+  // ============================================
+  // KLINIK GLOW AESTHETICS SERVICES (from Knowledge Base)
+  // ============================================
+
+  // FACIAL TREATMENTS
+  const facialBasic = await prisma.service.upsert({
+    where: { id: "facial-basic-glow" },
+    update: { name: "Facial Basic Glow", price: 25000000, description: "Pembersihan wajah menyeluruh dengan deep cleansing, eksfoliasi, ekstraksi komedo, masker, dan pijat relaksasi" },
     create: {
-      id: "facial-basic",
+      id: "facial-basic-glow",
       businessId: beautyClinic.id,
-      name: "Facial Treatment Basic",
-      description: "Pembersihan wajah menyeluruh dengan teknologi modern",
+      name: "Facial Basic Glow",
+      description: "Pembersihan wajah menyeluruh dengan deep cleansing, eksfoliasi, ekstraksi komedo, masker, dan pijat relaksasi",
       category: "facial",
-      price: 25000000, // 250k in cents
+      price: 25000000, // Rp 250.000
       depositAmount: 12500000,
       durationMinutes: 60,
       isActive: true,
     },
   });
 
-  const laserService = await prisma.service.upsert({
+  const facialPremium = await prisma.service.upsert({
+    where: { id: "facial-premium-hydrating" },
+    update: { name: "Facial Premium Hydrating", price: 45000000 },
+    create: {
+      id: "facial-premium-hydrating",
+      businessId: beautyClinic.id,
+      name: "Facial Premium Hydrating",
+      description: "Facial premium dengan serum hyaluronic acid dan LED light therapy untuk hidrasi maksimal",
+      category: "facial",
+      price: 45000000, // Rp 450.000
+      depositAmount: 22500000,
+      durationMinutes: 75,
+      isActive: true,
+    },
+  });
+
+  const facialAcne = await prisma.service.upsert({
+    where: { id: "facial-acne-solution" },
+    update: { name: "Facial Acne Solution", price: 40000000 },
+    create: {
+      id: "facial-acne-solution",
+      businessId: beautyClinic.id,
+      name: "Facial Acne Solution",
+      description: "Treatment khusus untuk kulit berjerawat dengan high-frequency, anti-bacterial serum, dan acne mask",
+      category: "facial",
+      price: 40000000, // Rp 400.000
+      depositAmount: 20000000,
+      durationMinutes: 75,
+      isActive: true,
+    },
+  });
+
+  const facialBrightening = await prisma.service.upsert({
+    where: { id: "facial-glow-brightening" },
+    update: { name: "Facial Glow Brightening", price: 55000000 },
+    create: {
+      id: "facial-glow-brightening",
+      businessId: beautyClinic.id,
+      name: "Facial Glow Brightening",
+      description: "Treatment untuk mencerahkan kulit dengan vitamin C, niacinamide, dan light therapy",
+      category: "facial",
+      price: 55000000, // Rp 550.000
+      depositAmount: 27500000,
+      durationMinutes: 75,
+      isActive: true,
+    },
+  });
+
+  const facialSignature = await prisma.service.upsert({
+    where: { id: "facial-signature-gold" },
+    update: { name: "Facial Signature Gold", price: 75000000 },
+    create: {
+      id: "facial-signature-gold",
+      businessId: beautyClinic.id,
+      name: "Facial Signature Gold",
+      description: "Premium facial dengan gold serum, LED therapy, dan teknik pijat eksklusif",
+      category: "facial",
+      price: 75000000, // Rp 750.000
+      depositAmount: 37500000,
+      durationMinutes: 90,
+      isActive: true,
+    },
+  });
+
+  // LASER & ADVANCED TREATMENTS
+  const laserCO2 = await prisma.service.upsert({
+    where: { id: "laser-co2-fractional" },
+    update: { name: "Laser CO2 Fractional", price: 120000000 },
+    create: {
+      id: "laser-co2-fractional",
+      businessId: beautyClinic.id,
+      name: "Laser CO2 Fractional",
+      description: "Gold standard untuk skin resurfacing, mengatasi bekas jerawat, kerutan, dan pori-pori besar",
+      category: "laser",
+      price: 120000000, // Rp 1.200.000
+      depositAmount: 60000000,
+      durationMinutes: 90,
+      isActive: true,
+    },
+  });
+
+  const laserToning = await prisma.service.upsert({
+    where: { id: "laser-toning" },
+    update: { name: "Laser Toning", price: 80000000 },
+    create: {
+      id: "laser-toning",
+      businessId: beautyClinic.id,
+      name: "Laser Toning",
+      description: "Laser untuk mencerahkan kulit, meratakan warna kulit, dan mengecilkan pori",
+      category: "laser",
+      price: 80000000, // Rp 800.000
+      depositAmount: 40000000,
+      durationMinutes: 45,
+      isActive: true,
+    },
+  });
+
+  const iplPhotofacial = await prisma.service.upsert({
+    where: { id: "ipl-photofacial" },
+    update: { name: "IPL Photofacial", price: 90000000 },
+    create: {
+      id: "ipl-photofacial",
+      businessId: beautyClinic.id,
+      name: "IPL Photofacial",
+      description: "Intense Pulsed Light untuk mengatasi flek, kemerahan, dan rejuvenasi kulit",
+      category: "laser",
+      price: 90000000, // Rp 900.000
+      depositAmount: 45000000,
+      durationMinutes: 45,
+      isActive: true,
+    },
+  });
+
+  const microneedlingRF = await prisma.service.upsert({
+    where: { id: "microneedling-rf" },
+    update: { name: "Microneedling RF", price: 100000000 },
+    create: {
+      id: "microneedling-rf",
+      businessId: beautyClinic.id,
+      name: "Microneedling RF",
+      description: "Kombinasi microneedling dengan radiofrequency untuk mengencangkan kulit dan mengatasi scarring",
+      category: "laser",
+      price: 100000000, // Rp 1.000.000
+      depositAmount: 50000000,
+      durationMinutes: 60,
+      isActive: true,
+    },
+  });
+
+  // INJECTION & FILLER
+  const fillerHA = await prisma.service.upsert({
+    where: { id: "filler-hyaluronic-acid" },
+    update: { name: "Filler Hyaluronic Acid", price: 350000000 },
+    create: {
+      id: "filler-hyaluronic-acid",
+      businessId: beautyClinic.id,
+      name: "Filler Hyaluronic Acid",
+      description: "Filler untuk menambah volume, mengisi kerutan, dan membentuk kontur wajah",
+      category: "injection",
+      price: 350000000, // Rp 3.500.000
+      depositAmount: 175000000,
+      durationMinutes: 45,
+      isActive: true,
+    },
+  });
+
+  const botox = await prisma.service.upsert({
+    where: { id: "botox-forehead" },
+    update: { name: "Botox Forehead/Frown", price: 250000000 },
+    create: {
+      id: "botox-forehead",
+      businessId: beautyClinic.id,
+      name: "Botox Forehead/Frown",
+      description: "Botox untuk menghilangkan kerutan dahi dan garis ekspresi (frown lines)",
+      category: "injection",
+      price: 250000000, // Rp 2.500.000
+      depositAmount: 125000000,
+      durationMinutes: 30,
+      isActive: true,
+    },
+  });
+
+  const skinBooster = await prisma.service.upsert({
+    where: { id: "skin-booster" },
+    update: { name: "Skin Booster", price: 200000000 },
+    create: {
+      id: "skin-booster",
+      businessId: beautyClinic.id,
+      name: "Skin Booster",
+      description: "Injeksi hyaluronic acid untuk hidrasi mendalam dan membuat kulit glowing",
+      category: "injection",
+      price: 200000000, // Rp 2.000.000
+      depositAmount: 100000000,
+      durationMinutes: 45,
+      isActive: true,
+    },
+  });
+
+  // CHEMICAL PEELING & SPECIAL
+  const peelingLight = await prisma.service.upsert({
+    where: { id: "chemical-peeling-light" },
+    update: { name: "Chemical Peeling Light", price: 35000000 },
+    create: {
+      id: "chemical-peeling-light",
+      businessId: beautyClinic.id,
+      name: "Chemical Peeling Light",
+      description: "Peeling ringan dengan AHA/BHA untuk eksfoliasi dan mencerahkan kulit",
+      category: "peeling",
+      price: 35000000, // Rp 350.000
+      depositAmount: 17500000,
+      durationMinutes: 30,
+      isActive: true,
+    },
+  });
+
+  const peelingMedium = await prisma.service.upsert({
+    where: { id: "chemical-peeling-medium" },
+    update: { name: "Chemical Peeling Medium", price: 60000000 },
+    create: {
+      id: "chemical-peeling-medium",
+      businessId: beautyClinic.id,
+      name: "Chemical Peeling Medium",
+      description: "Peeling medium-depth untuk mengatasi flek, bekas jerawat, dan uneven skin tone",
+      category: "peeling",
+      price: 60000000, // Rp 600.000
+      depositAmount: 30000000,
+      durationMinutes: 45,
+      isActive: true,
+    },
+  });
+
+  const hifuFacial = await prisma.service.upsert({
+    where: { id: "hifu-facial-lifting" },
+    update: { name: "HIFU Facial Lifting", price: 300000000 },
+    create: {
+      id: "hifu-facial-lifting",
+      businessId: beautyClinic.id,
+      name: "HIFU Facial Lifting",
+      description: "High Intensity Focused Ultrasound untuk mengencangkan dan lifting wajah tanpa operasi",
+      category: "advanced",
+      price: 300000000, // Rp 3.000.000
+      depositAmount: 150000000,
+      durationMinutes: 90,
+      isActive: true,
+    },
+  });
+
+  // Keep the old service ID for backward compatibility (will be deactivated)
+  await prisma.service.upsert({
+    where: { id: "facial-basic" },
+    update: { isActive: false },
+    create: {
+      id: "facial-basic",
+      businessId: beautyClinic.id,
+      name: "Facial Treatment Basic (Legacy)",
+      description: "Legacy service - use facial-basic-glow instead",
+      category: "facial",
+      price: 25000000,
+      depositAmount: 12500000,
+      durationMinutes: 60,
+      isActive: false,
+    },
+  });
+
+  await prisma.service.upsert({
     where: { id: "laser-co2" },
-    update: {},
+    update: { isActive: false },
     create: {
       id: "laser-co2",
       businessId: beautyClinic.id,
-      name: "Laser CO2 Fractional",
-      description: "Treatment untuk jerawat, bekas jerawat, dan pori-pori besar",
+      name: "Laser CO2 (Legacy)",
+      description: "Legacy service - use laser-co2-fractional instead",
       category: "laser",
-      price: 50000000, // 500k in cents
-      depositAmount: 25000000,
+      price: 120000000,
+      depositAmount: 60000000,
       durationMinutes: 90,
-      isActive: true,
+      isActive: false,
     },
   });
 
@@ -257,7 +505,7 @@ async function main() {
     },
   });
 
-  console.log(`✅ Created ${4} services`);
+  console.log(`✅ Created 17 services (15 clinic + 2 travel)`);
 
   // ============================================
   // BOOKING SYSTEM: Create Resources
@@ -386,7 +634,7 @@ async function main() {
       bookingNumber: "BKG-2025-001",
       customerId: customer.id,
       businessId: beautyClinic.id,
-      serviceId: facialService.id,
+      serviceId: facialBasic.id,
       bookingDate: new Date("2025-12-28"),
       startTime: new Date("2025-12-28T10:00:00"),
       endTime: new Date("2025-12-28T11:00:00"),
@@ -395,8 +643,8 @@ async function main() {
       customerPhone: customer.phoneNumber,
       customerEmail: "adi@example.com",
       notes: "First time customer",
-      totalAmount: facialService.price,
-      depositAmount: facialService.depositAmount,
+      totalAmount: facialBasic.price,
+      depositAmount: facialBasic.depositAmount,
       resources: {
         create: [
           {
@@ -409,8 +657,8 @@ async function main() {
       },
       payment: {
         create: {
-          amount: facialService.price,
-          paidAmount: facialService.depositAmount!,
+          amount: facialBasic.price,
+          paidAmount: facialBasic.depositAmount!,
           paymentType: "BANK_TRANSFER",
           status: "SETTLEMENT",
           bank: "bca",
@@ -423,7 +671,7 @@ async function main() {
           scheduledFor: new Date("2025-12-27T10:00:00"),
           method: "WHATSAPP",
           status: "PENDING",
-          message: "Reminder: Anda memiliki appointment besok jam 10:00 di Klinik Glow Aesthetics Jakarta untuk Facial Treatment Basic",
+          message: "Reminder: Anda memiliki appointment besok jam 10:00 di Klinik Glow Aesthetics Jakarta untuk Facial Basic Glow",
         },
       },
     },
