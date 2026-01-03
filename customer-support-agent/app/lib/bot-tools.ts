@@ -211,6 +211,171 @@ export const BOT_TOOLS: Anthropic.Tool[] = [
       required: ["bookingNumber"],
     },
   },
+
+  // ============================================
+  // SALES AUTOMATION TOOLS
+  // ============================================
+  {
+    name: "detect_sales_opportunity",
+    description:
+      "Analisa percakapan untuk deteksi peluang penjualan. Mengembalikan rekomendasi upsell/cross-sell dan scoring intent customer berdasarkan percakapan. Gunakan untuk memahami buying signals dari customer.",
+    input_schema: {
+      type: "object",
+      properties: {
+        conversationContext: {
+          type: "string",
+          description:
+            "Ringkasan percakapan customer termasuk minat, budget hints, dan kekhawatiran mereka",
+        },
+      },
+      required: ["conversationContext"],
+    },
+  },
+  {
+    name: "get_upsell_recommendations",
+    description:
+      "Dapatkan rekomendasi upsell/cross-sell berdasarkan service yang diminati customer. Mengembalikan daftar treatment tambahan yang relevan dengan benefit dan harga. Gunakan saat customer sudah menunjukkan interest pada service tertentu.",
+    input_schema: {
+      type: "object",
+      properties: {
+        serviceId: {
+          type: "string",
+          description:
+            "ID service yang customer minati (contoh: 'facial-basic-glow', 'laser-toning')",
+        },
+        customerIntent: {
+          type: "string",
+          enum: ["budget_conscious", "quality_seeker", "results_driven", "first_timer"],
+          description:
+            "Kategori intent customer: budget_conscious (cari murah), quality_seeker (mau premium), results_driven (mau hasil cepat), first_timer (pertama kali)",
+        },
+        maxRecommendations: {
+          type: "number",
+          description: "Jumlah maksimal rekomendasi yang dikembalikan (default: 3)",
+        },
+      },
+      required: ["serviceId", "customerIntent"],
+    },
+  },
+  {
+    name: "generate_promo_offer",
+    description:
+      "Generate penawaran promo otomatis untuk mendorong konversi. Bisa berupa diskon persentase, paket bundle, atau limited-time offer dengan kode promo unik. Gunakan saat customer ragu atau mention budget concerns. MAX 20% discount.",
+    input_schema: {
+      type: "object",
+      properties: {
+        serviceIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Daftar service IDs yang akan dipromo",
+        },
+        promoType: {
+          type: "string",
+          enum: [
+            "percentage_discount",
+            "bundle_package",
+            "first_timer_special",
+            "limited_time",
+          ],
+          description:
+            "Jenis promo: percentage_discount (diskon %), bundle_package (paket hemat), first_timer_special (new customer), limited_time (flash sale)",
+        },
+        urgencyLevel: {
+          type: "string",
+          enum: ["low", "medium", "high"],
+          description:
+            "Tingkat urgency: low (10%, 7 hari), medium (15%, 3 hari), high (20%, 24 jam)",
+        },
+      },
+      required: ["serviceIds", "promoType", "urgencyLevel"],
+    },
+  },
+  {
+    name: "handle_objection",
+    description:
+      "Dapatkan response untuk menangani keberatan customer (harga mahal, takut sakit, belum yakin, dll). Mengembalikan strategi, talking points, dan solusi alternatif. Gunakan saat customer menunjukkan keraguan.",
+    input_schema: {
+      type: "object",
+      properties: {
+        objectionType: {
+          type: "string",
+          enum: [
+            "price_too_high",
+            "need_time_to_think",
+            "fear_of_pain",
+            "not_sure_suitable",
+            "comparing_competitors",
+            "budget_constraint",
+          ],
+          description:
+            "Jenis keberatan: price_too_high (mahal), need_time_to_think (mikir dulu), fear_of_pain (takut sakit), not_sure_suitable (belum yakin cocok), comparing_competitors (banding kompetitor), budget_constraint (budget terbatas)",
+        },
+        serviceId: {
+          type: "string",
+          description: "Service yang sedang dibahas untuk konteks lebih spesifik (opsional)",
+        },
+      },
+      required: ["objectionType"],
+    },
+  },
+  {
+    name: "update_sales_stage",
+    description:
+      "Update tahap sales funnel untuk conversation ini. Track progress customer dari awareness → interest → consideration → intent → booking. WAJIB panggil setiap turn untuk tracking konversi.",
+    input_schema: {
+      type: "object",
+      properties: {
+        stage: {
+          type: "string",
+          enum: [
+            "AWARENESS",
+            "INTEREST",
+            "CONSIDERATION",
+            "INTENT",
+            "BOOKING",
+            "PAYMENT",
+            "COMPLETED",
+          ],
+          description:
+            "Tahap funnel: AWARENESS (baru chat), INTEREST (tanya service), CONSIDERATION (bandingkan), INTENT (siap booking), BOOKING (sudah booking), PAYMENT (sudah bayar), COMPLETED (selesai)",
+        },
+        serviceInterest: {
+          type: "array",
+          items: { type: "string" },
+          description: "Service IDs yang customer minati",
+        },
+        intentScore: {
+          type: "number",
+          description: "Score 0-100 seberapa likely customer akan booking",
+        },
+      },
+      required: ["stage", "intentScore"],
+    },
+  },
+  {
+    name: "apply_discount_code",
+    description:
+      "Validasi dan aplikasikan kode promo/discount ke booking. Menghitung harga akhir setelah diskon. Gunakan saat customer memberikan atau menanyakan kode promo.",
+    input_schema: {
+      type: "object",
+      properties: {
+        discountCode: {
+          type: "string",
+          description: "Kode promo yang customer masukkan (contoh: 'GLOW20ABC')",
+        },
+        serviceIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Service IDs yang akan di-booking",
+        },
+        bookingDate: {
+          type: "string",
+          description: "Tanggal booking untuk validasi periode promo (format: YYYY-MM-DD)",
+        },
+      },
+      required: ["discountCode", "serviceIds"],
+    },
+  },
 ];
 
 /**
@@ -232,6 +397,14 @@ import {
   createPaymentLink,
   checkBookingPaymentStatus,
 } from "@/app/lib/midtrans-service";
+import {
+  detectSalesOpportunity,
+  getUpsellRecommendations,
+  generatePromoOffer,
+  handleObjection,
+  updateSalesFunnel,
+  applyDiscountCode,
+} from "@/app/lib/sales-service";
 
 /**
  * Execute a bot action by calling the appropriate service function directly
@@ -349,6 +522,72 @@ export async function executeBotAction(action: BotAction): Promise<any> {
         }
         return await checkBookingPaymentStatus(customerId, bookingNumber);
 
+      // ============================================
+      // SALES AUTOMATION TOOLS
+      // ============================================
+      case "detect_sales_opportunity":
+        if (!input.conversationContext) {
+          return { success: false, error: "conversationContext diperlukan" };
+        }
+        return await detectSalesOpportunity(
+          input.conversationContext,
+          input.conversationId || ""
+        );
+
+      case "get_upsell_recommendations":
+        if (!input.serviceId || !input.customerIntent) {
+          return { success: false, error: "serviceId dan customerIntent diperlukan" };
+        }
+        return await getUpsellRecommendations(
+          input.serviceId,
+          input.customerIntent,
+          input.maxRecommendations || 3
+        );
+
+      case "generate_promo_offer":
+        if (!input.serviceIds || !input.promoType || !input.urgencyLevel) {
+          return {
+            success: false,
+            error: "serviceIds, promoType, dan urgencyLevel diperlukan",
+          };
+        }
+        return await generatePromoOffer(
+          input.serviceIds,
+          input.promoType,
+          input.urgencyLevel
+        );
+
+      case "handle_objection":
+        if (!input.objectionType) {
+          return { success: false, error: "objectionType diperlukan" };
+        }
+        return await handleObjection(input.objectionType, input.serviceId);
+
+      case "update_sales_stage":
+        if (!input.stage || input.intentScore === undefined) {
+          return { success: false, error: "stage dan intentScore diperlukan" };
+        }
+        if (!input.conversationId) {
+          console.warn("⚠️ No conversationId for sales funnel update - skipping database log");
+          return { success: true, warning: "Funnel update skipped - no conversationId" };
+        }
+        return await updateSalesFunnel(
+          input.conversationId,
+          input.stage,
+          input.intentScore,
+          input.serviceInterest || []
+        );
+
+      case "apply_discount_code":
+        if (!input.discountCode || !input.serviceIds) {
+          return { success: false, error: "discountCode dan serviceIds diperlukan" };
+        }
+        return await applyDiscountCode(
+          input.discountCode,
+          input.serviceIds,
+          input.bookingDate || new Date().toISOString().split("T")[0]
+        );
+
       default:
         return {
           success: false,
@@ -442,14 +681,19 @@ export function extractToolUse(response: Anthropic.Message): Array<{
  */
 export async function executeToolUse(
   toolUses: Array<{ id: string; name: string; input: Record<string, any> }>,
-  customerId: string
+  customerId: string,
+  conversationId?: string // SALES AUTOMATION FIX: Add conversationId for funnel tracking
 ): Promise<Array<{ id: string; name: string; result: any }>> {
   const results: Array<{ id: string; name: string; result: any }> = [];
 
   for (const toolUse of toolUses) {
     try {
-      // Add customerId to input
-      const input = { customerId, ...toolUse.input };
+      // Add customerId and conversationId to input for sales tracking
+      const input = {
+        customerId,
+        conversationId: conversationId || undefined, // Only add if available
+        ...toolUse.input
+      };
 
       // Execute the tool
       const result = await executeBotAction({

@@ -16,20 +16,24 @@ model Customer {
   conversations Conversation[]
   orders        Order[]
   bookings      Booking[]
+  promoCodes    PromoCode[]
 
   @@map("customers")
 }
 
 model Conversation {
-  id             String                @id @default(cuid())
-  customerId     String                @map("customer_id")
-  status         ConversationStatus    @default(ACTIVE)
-  startedAt      DateTime              @default(now()) @map("started_at")
-  endedAt        DateTime?             @map("ended_at")
-  metadata       ConversationMetadata?
-  customer       Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  messages       Message[]
-  learnedQAPairs LearnedQAPair[]
+  id              String                @id @default(cuid())
+  customerId      String                @map("customer_id")
+  status          ConversationStatus    @default(ACTIVE)
+  startedAt       DateTime              @default(now()) @map("started_at")
+  endedAt         DateTime?             @map("ended_at")
+  metadata        ConversationMetadata?
+  customer        Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  messages        Message[]
+  learnedQAPairs  LearnedQAPair[]
+  salesFunnelLogs SalesFunnelLog[]
+  upsellAttempts  UpsellAttempt[]
+  promoCodes      PromoCode[]
 
   @@index([customerId])
   @@index([status])
@@ -69,11 +73,28 @@ model ConversationMetadata {
   learningEligible  Boolean   @default(false) @map("learning_eligible")
   learnedAt         DateTime? @map("learned_at")          // When Q&A was extracted
 
+  // ===== SALES AUTOMATION: Sales Funnel Tracking =====
+  salesStage              String?   @map("sales_stage")
+  intentScore             Int?      @default(0) @map("intent_score")
+  servicesInterested      String[]  @default([]) @map("services_interested")
+  objectionsFaced         String[]  @default([]) @map("objections_faced")
+  promosOffered           String[]  @default([]) @map("promos_offered")
+  upsellsShown            String[]  @default([]) @map("upsells_shown")
+  conversionProbability   Float?    @map("conversion_probability")
+
+  // ===== SALES AUTOMATION: Conversion Attribution =====
+  linkedBookingId         String?   @map("linked_booking_id")
+  convertedToBooking      Boolean   @default(false) @map("converted_to_booking")
+  conversionRevenue       Int?      @map("conversion_revenue")
+  conversionTime          DateTime? @map("conversion_time")
+
   conversation       Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([wasRedirected])
   @@index([notificationSentAt])
   @@index([learningEligible])
+  @@index([salesStage])
+  @@index([convertedToBooking])
   @@map("conversation_metadata")
 }
 
@@ -253,6 +274,81 @@ model LearnedQAPair {
 }
 
 // ============================================
+// SALES AUTOMATION MODELS
+// ============================================
+
+// Track customer progression through sales funnel
+model SalesFunnelLog {
+  id                String           @id @default(cuid())
+  conversationId    String           @map("conversation_id")
+  fromStage         SalesFunnelStage @map("from_stage")
+  toStage           SalesFunnelStage @map("to_stage")
+  intentScoreBefore Int              @map("intent_score_before")
+  intentScoreAfter  Int              @map("intent_score_after")
+  triggerAction     String?          @map("trigger_action")
+  notes             String?          @db.Text
+  createdAt         DateTime         @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([toStage])
+  @@index([createdAt])
+  @@map("sales_funnel_logs")
+}
+
+// Promo codes and discounts management
+model PromoCode {
+  id                  String     @id @default(cuid())
+  code                String     @unique
+  type                PromoType
+  discountValue       Int        @map("discount_value") // Percentage value (e.g., 10 = 10%)
+  description         String?    @db.Text
+  applicableServices  String[]   @default([]) @map("applicable_services")
+  minPurchaseAmount   Int?       @map("min_purchase_amount")
+  maxUsageCount       Int?       @map("max_usage_count")
+  usageCount          Int        @default(0) @map("usage_count")
+  validUntil          DateTime?  @map("valid_until")
+  isActive            Boolean    @default(true) @map("is_active")
+  conversationId      String?    @map("conversation_id") // Which conversation generated this
+  customerId          String?    @map("customer_id")     // Which customer this is for
+  createdAt           DateTime   @default(now()) @map("created_at")
+
+  bookings    Booking[]     @relation("BookingPromoCode")
+  conversation Conversation? @relation(fields: [conversationId], references: [id])
+  customer     Customer?     @relation(fields: [customerId], references: [id])
+
+  @@index([code])
+  @@index([isActive])
+  @@index([validUntil])
+  @@index([conversationId])
+  @@index([customerId])
+  @@map("promo_codes")
+}
+
+// Track upsell/cross-sell attempts and acceptance
+model UpsellAttempt {
+  id                  String    @id @default(cuid())
+  conversationId      String    @map("conversation_id")
+  originalServiceId   String    @map("original_service_id")
+  suggestedServiceId  String    @map("suggested_service_id")
+  upsellType          String    @map("upsell_type") // "upgrade", "complement", "bundle"
+  reasonShown         String    @map("reason_shown") @db.Text
+  priceDifference     Int?      @map("price_difference")
+  wasAccepted         Boolean   @default(false) @map("was_accepted")
+  acceptedAt          DateTime? @map("accepted_at")
+  shownAt             DateTime  @default(now()) @map("shown_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([wasAccepted])
+  @@index([shownAt])
+  @@index([upsellType])
+  @@map("upsell_attempts")
+}
+
+// ============================================
 // BOOKING SYSTEM MODELS
 // ============================================
 
@@ -333,25 +429,33 @@ model Resource {
 }
 
 model Booking {
-  id                 String            @id @default(cuid())
-  bookingNumber      String            @unique @map("booking_number")
-  customerId         String            @map("customer_id")
-  businessId         String            @map("business_id")
-  serviceId          String            @map("service_id")
-  bookingDate        DateTime          @map("booking_date")
-  startTime          DateTime          @map("start_time")
-  endTime            DateTime          @map("end_time")
-  status             BookingStatus     @default(PENDING)
-  customerName       String            @map("customer_name")
-  customerPhone      String            @map("customer_phone")
-  customerEmail      String?           @map("customer_email")
-  notes              String?           @db.Text
-  totalAmount        Int               @map("total_amount")
-  depositAmount      Int?              @map("deposit_amount")
-  cancellationReason String?           @map("cancellation_reason") @db.Text
-  cancelledAt        DateTime?         @map("cancelled_at")
-  createdAt          DateTime          @default(now()) @map("created_at")
-  updatedAt          DateTime          @updatedAt @map("updated_at")
+  id                   String            @id @default(cuid())
+  bookingNumber        String            @unique @map("booking_number")
+  customerId           String            @map("customer_id")
+  businessId           String            @map("business_id")
+  serviceId            String            @map("service_id")
+  bookingDate          DateTime          @map("booking_date")
+  startTime            DateTime          @map("start_time")
+  endTime              DateTime          @map("end_time")
+  status               BookingStatus     @default(PENDING)
+  customerName         String            @map("customer_name")
+  customerPhone        String            @map("customer_phone")
+  customerEmail        String?           @map("customer_email")
+  notes                String?           @db.Text
+  totalAmount          Int               @map("total_amount")
+  depositAmount        Int?              @map("deposit_amount")
+  cancellationReason   String?           @map("cancellation_reason") @db.Text
+  cancelledAt          DateTime?         @map("cancelled_at")
+
+  // ===== SALES AUTOMATION: Promo Tracking =====
+  promoCodeId          String?           @map("promo_code_id")
+  discountAmount       Int?              @map("discount_amount")
+  originalAmount       Int?              @map("original_amount")
+  sourceConversationId String?           @map("source_conversation_id")
+  upsellServices       String[]          @default([]) @map("upsell_services")
+
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
 
   customer  Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
   business  Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -359,12 +463,15 @@ model Booking {
   resources BookingResource[]
   payment   BookingPayment?
   reminders BookingReminder[]
+  promoCode PromoCode?        @relation("BookingPromoCode", fields: [promoCodeId], references: [id])
 
   @@index([customerId])
   @@index([businessId])
   @@index([bookingNumber])
   @@index([status])
   @@index([bookingDate])
+  @@index([promoCodeId])
+  @@index([sourceConversationId])
   @@map("bookings")
 }
 
@@ -571,4 +678,27 @@ enum ReminderStatus {
   PENDING
   SENT
   FAILED
+}
+
+// ============================================
+// SALES AUTOMATION ENUMS
+// ============================================
+
+enum SalesFunnelStage {
+  AWARENESS     // Just started chatting
+  INTEREST      // Asked about services
+  CONSIDERATION // Comparing options, asking detailed questions
+  INTENT        // Ready to book, asking about availability
+  BOOKING       // Created booking
+  PAYMENT       // Made payment
+  COMPLETED     // Treatment completed
+}
+
+enum PromoType {
+  PERCENTAGE_DISCOUNT
+  FIXED_AMOUNT
+  BUNDLE_PACKAGE
+  FIRST_TIMER_SPECIAL
+  LIMITED_TIME_FLASH
+  LOYALTY_REWARD
 }

@@ -3,7 +3,7 @@
  * Provides functions for managing customers, conversations, and messages
  */
 
-import { PrismaClient, ConversationStatus, MessageRole } from '@prisma/client';
+import { PrismaClient, ConversationStatus, MessageRole, SalesFunnelStage, PromoType } from '@prisma/client';
 
 // Singleton pattern for Prisma Client
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
@@ -774,6 +774,362 @@ export async function getLearnedQAStats() {
     };
   } catch (error) {
     console.error('Error getting learned Q&A stats:', error);
+    throw error;
+  }
+}
+
+// ===== SALES AUTOMATION: Sales Funnel & Promo Functions =====
+
+/**
+ * Create a sales funnel log entry
+ */
+export async function createSalesFunnelLog(data: {
+  conversationId: string;
+  fromStage: SalesFunnelStage;
+  toStage: SalesFunnelStage;
+  intentScoreBefore: number;
+  intentScoreAfter: number;
+  triggerAction?: string;
+  notes?: string;
+}) {
+  try {
+    const log = await prisma.salesFunnelLog.create({
+      data,
+    });
+
+    console.log(`✅ Sales funnel log: ${data.fromStage} → ${data.toStage}`);
+    return log;
+  } catch (error) {
+    console.error('Error creating sales funnel log:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create a new promo code
+ */
+export async function createPromoCode(data: {
+  code: string;
+  type: PromoType;
+  discountValue: number;
+  description?: string;
+  minPurchaseAmount?: number;
+  maxUsageCount?: number;
+  validUntil?: Date;
+  applicableServices?: string[];
+  conversationId?: string;
+  customerId?: string;
+}) {
+  try {
+    const promo = await prisma.promoCode.create({
+      data,
+    });
+
+    console.log(`✅ Created promo code: ${data.code} (${data.discountValue}% off)`);
+    return promo;
+  } catch (error) {
+    console.error('Error creating promo code:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get promo code by code string
+ */
+export async function getPromoCodeByCode(code: string) {
+  try {
+    const promo = await prisma.promoCode.findUnique({
+      where: { code },
+      include: {
+        conversation: true,
+        customer: true,
+        bookings: true,
+      },
+    });
+
+    return promo;
+  } catch (error) {
+    console.error('Error getting promo code:', error);
+    throw error;
+  }
+}
+
+/**
+ * Validate and check if promo code is usable
+ */
+export async function validatePromoCode(code: string, purchaseAmount?: number) {
+  try {
+    const promo = await getPromoCodeByCode(code);
+
+    if (!promo) {
+      return { valid: false, reason: 'Kode promo tidak ditemukan' };
+    }
+
+    if (!promo.isActive) {
+      return { valid: false, reason: 'Kode promo sudah tidak aktif' };
+    }
+
+    if (promo.validUntil && promo.validUntil < new Date()) {
+      return { valid: false, reason: 'Kode promo sudah expired' };
+    }
+
+    if (promo.maxUsageCount && promo.usageCount >= promo.maxUsageCount) {
+      return { valid: false, reason: 'Kode promo sudah mencapai batas penggunaan' };
+    }
+
+    if (purchaseAmount && promo.minPurchaseAmount && purchaseAmount < promo.minPurchaseAmount) {
+      return {
+        valid: false,
+        reason: `Minimum pembelian Rp ${promo.minPurchaseAmount.toLocaleString('id-ID')}`,
+      };
+    }
+
+    return { valid: true, promo };
+  } catch (error) {
+    console.error('Error validating promo code:', error);
+    throw error;
+  }
+}
+
+/**
+ * Increment promo code usage count
+ */
+export async function incrementPromoUsage(code: string) {
+  try {
+    const promo = await prisma.promoCode.update({
+      where: { code },
+      data: {
+        usageCount: { increment: 1 },
+      },
+    });
+
+    console.log(`✅ Promo ${code} usage incremented to ${promo.usageCount}`);
+    return promo;
+  } catch (error) {
+    console.error('Error incrementing promo usage:', error);
+    throw error;
+  }
+}
+
+/**
+ * Deactivate a promo code
+ */
+export async function deactivatePromoCode(code: string) {
+  try {
+    const promo = await prisma.promoCode.update({
+      where: { code },
+      data: { isActive: false },
+    });
+
+    console.log(`✅ Promo ${code} deactivated`);
+    return promo;
+  } catch (error) {
+    console.error('Error deactivating promo code:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create an upsell attempt record
+ */
+export async function createUpsellAttempt(data: {
+  conversationId: string;
+  originalServiceId: string;
+  suggestedServiceId: string;
+  upsellType: string;
+  reasonShown: string;
+  priceDifference?: number;
+}) {
+  try {
+    const attempt = await prisma.upsellAttempt.create({
+      data,
+    });
+
+    console.log(`✅ Upsell attempt recorded: ${data.originalServiceId} → ${data.suggestedServiceId}`);
+    return attempt;
+  } catch (error) {
+    console.error('Error creating upsell attempt:', error);
+    throw error;
+  }
+}
+
+/**
+ * Mark upsell attempt as accepted
+ */
+export async function markUpsellAccepted(upsellId: string) {
+  try {
+    const attempt = await prisma.upsellAttempt.update({
+      where: { id: upsellId },
+      data: {
+        wasAccepted: true,
+        acceptedAt: new Date(),
+      },
+    });
+
+    console.log(`✅ Upsell ${upsellId} marked as accepted`);
+    return attempt;
+  } catch (error) {
+    console.error('Error marking upsell accepted:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get upsell attempts for a conversation
+ */
+export async function getUpsellAttempts(conversationId: string) {
+  try {
+    const attempts = await prisma.upsellAttempt.findMany({
+      where: { conversationId },
+      orderBy: { shownAt: 'desc' },
+    });
+
+    return attempts;
+  } catch (error) {
+    console.error('Error getting upsell attempts:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update sales-related metadata on a conversation
+ */
+export async function updateSalesMetadata(
+  conversationId: string,
+  data: {
+    salesStage?: SalesFunnelStage;
+    intentScore?: number;
+    servicesInterested?: string[];
+    objectionsFaced?: string[];
+    promosOffered?: string[];
+    upsellsShown?: string[];
+    conversionProbability?: number;
+    linkedBookingId?: string;
+    convertedToBooking?: boolean;
+    conversionRevenue?: number;
+    conversionTime?: Date;
+  }
+) {
+  try {
+    const existing = await prisma.conversationMetadata.findUnique({
+      where: { conversationId },
+    });
+
+    let metadata;
+    if (existing) {
+      metadata = await prisma.conversationMetadata.update({
+        where: { conversationId },
+        data,
+      });
+    } else {
+      metadata = await prisma.conversationMetadata.create({
+        data: {
+          conversationId,
+          ...data,
+        },
+      });
+    }
+
+    console.log(`✅ Updated sales metadata for conversation: ${conversationId}`);
+    return metadata;
+  } catch (error) {
+    console.error('Error updating sales metadata:', error);
+    throw error;
+  }
+}
+
+/**
+ * Link conversation to a booking (conversion tracking)
+ */
+export async function linkConversationToBooking(
+  conversationId: string,
+  bookingId: string,
+  revenue: number
+) {
+  try {
+    const metadata = await prisma.conversationMetadata.upsert({
+      where: { conversationId },
+      create: {
+        conversationId,
+        linkedBookingId: bookingId,
+        convertedToBooking: true,
+        conversionRevenue: revenue,
+        conversionTime: new Date(),
+        salesStage: SalesFunnelStage.BOOKING,
+      },
+      update: {
+        linkedBookingId: bookingId,
+        convertedToBooking: true,
+        conversionRevenue: revenue,
+        conversionTime: new Date(),
+        salesStage: SalesFunnelStage.BOOKING,
+      },
+    });
+
+    console.log(`✅ Linked conversation ${conversationId} to booking ${bookingId}`);
+    return metadata;
+  } catch (error) {
+    console.error('Error linking conversation to booking:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get sales funnel logs for a conversation
+ */
+export async function getSalesFunnelLogs(conversationId: string) {
+  try {
+    const logs = await prisma.salesFunnelLog.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return logs;
+  } catch (error) {
+    console.error('Error getting sales funnel logs:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get all active promo codes
+ */
+export async function getActivePromoCodes() {
+  try {
+    const promos = await prisma.promoCode.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { validUntil: null },
+          { validUntil: { gte: new Date() } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return promos;
+  } catch (error) {
+    console.error('Error getting active promo codes:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get promo codes by customer
+ */
+export async function getCustomerPromoCodes(customerId: string) {
+  try {
+    const promos = await prisma.promoCode.findMany({
+      where: {
+        customerId,
+        isActive: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return promos;
+  } catch (error) {
+    console.error('Error getting customer promo codes:', error);
     throw error;
   }
 }

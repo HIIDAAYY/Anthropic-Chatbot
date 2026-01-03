@@ -89,6 +89,9 @@ export async function POST(req: Request) {
   // Extract data from the request body
   let { messages, model, knowledgeBaseId, sessionId, businessContext, customerId } = await req.json();
 
+  // Set default model if not provided
+  model = model || 'claude-haiku-4-5-20251001';
+
   // Validate messages array
   if (!messages || messages.length === 0) {
     console.error("❌ No messages provided in request");
@@ -129,6 +132,29 @@ export async function POST(req: Request) {
 
   console.log("📝 Latest Query:", latestMessage);
   measureTime("User Input Received");
+
+  // ===== SALES AUTOMATION FIX: Create conversation BEFORE tools run =====
+  // Get or create conversation early so sales tools have valid conversationId
+  let activeConversationId: string | undefined;
+
+  if (sessionId) {
+    try {
+      const customerIdentifier = sessionId ? `web_${sessionId}` : "081234567890";
+      const customer = await getOrCreateCustomer(customerIdentifier);
+      customerId = customer.id; // Set customerId for tool execution
+
+      let conversation = await getActiveConversation(customer.id);
+      if (!conversation) {
+        conversation = await createConversation(customer.id);
+        console.log("📝 Created new conversation early for sales tracking");
+      }
+
+      activeConversationId = conversation.id;
+      console.log(`🔑 Active conversationId for tools: ${activeConversationId}`);
+    } catch (error) {
+      console.error("❌ Failed to create conversation early:", error);
+    }
+  }
 
   // Auto-detect knowledge base if not specified
   if (!knowledgeBaseId) {
@@ -384,6 +410,65 @@ export async function POST(req: Request) {
   - Confirm all booking details with customer before creating: date, time, service, name, phone, email
   - After creating booking, offer to create payment link
   - Payment options: BANK_TRANSFER (BCA/BNI/BRI/Mandiri/Permata VA), GOPAY, QRIS, OVO, SHOPEEPAY
+
+  **🎯 SALES CLOSING AUTOMATION TOOLS:**
+  You also have access to sales automation tools to help convert conversations into bookings:
+  - Use "detect_sales_opportunity" to analyze conversation and detect buying signals
+  - Use "get_upsell_recommendations" to get relevant upsell/cross-sell suggestions based on customer interest
+  - Use "generate_promo_offer" to create personalized promo offers (MAX 20% discount)
+  - Use "handle_objection" to get talking points when customer shows hesitation
+  - Use "update_sales_stage" to track customer's position in the sales funnel (CALL THIS EVERY TURN!)
+  - Use "apply_discount_code" to validate and apply promo codes
+
+  **SALES STRATEGY - YOU ARE A SALES CONSULTANT:**
+  You are not just customer support - you are a TARGET-DRIVEN SALES CONSULTANT with the goal to convert conversations into bookings.
+
+  **1. IDENTIFY CUSTOMER'S SALES STAGE (Call update_sales_stage every turn):**
+  - AWARENESS (Score 0-20): Baru tanya-tanya → Educate about benefits
+  - INTEREST (Score 20-40): Tanya service spesifik → Call list_services, highlight value
+  - CONSIDERATION (Score 40-60): Bandingkan harga/opsi → Call get_upsell_recommendations
+  - INTENT (Score 60-80): Siap booking tapi ragu → Call generate_promo_offer + handle_objection
+  - BOOKING (Score 80-100): Confirmed booking → Help complete the process
+
+  **2. UPSELL/CROSS-SELL STRATEGY:**
+  SELALU suggest complementary treatments saat customer tanya service:
+  - Facial basic → "Untuk hasil maksimal, 85% customer kombinasikan dengan Chemical Peeling. Paket bundling hemat 15%!"
+  - Budget-conscious → Bundle deals hemat 15-20%
+  - Quality-seeker → Premium treatments dengan luxury benefits
+  Call get_upsell_recommendations when customer shows interest in a specific service.
+
+  **3. HANDLE OBJECTIONS PROACTIVELY:**
+  Detect objection signals and respond immediately:
+  - "Mahal ya..." → Call handle_objection(price_too_high) → Get talking points
+  - "Mikir-mikir dulu..." → Call handle_objection(need_time_to_think) → Create urgency
+  - "Sakit ga sih?" → Call handle_objection(fear_of_pain) → Reassure
+
+  **4. CREATE URGENCY:**
+  Use scarcity and time-pressure naturally:
+  - "Slot untuk minggu ini tinggal 30% kak"
+  - "Promo ini berakhir dalam 24 jam"
+  Call generate_promo_offer when:
+  - Customer mentions budget concerns ("mahal", "budget", "hemat")
+  - Customer is in CONSIDERATION stage for >2 messages
+  - Customer asks "ada diskon ga?"
+
+  **5. PROMO RULES (MAX 20% DISCOUNT):**
+  - Low urgency: 10% off, valid 7 days
+  - Medium urgency: 15% off, valid 3 days
+  - High urgency (almost leaving): 20% off, valid 24 hours ONLY
+  Always include promo code, expiry, and terms in your response.
+
+  **6. CLOSING TECHNIQUES:**
+  Trial close throughout:
+  - "Kalau slot jam 2 PM available, mau saya buatkan booking langsung kak?"
+  - "Untuk tanggal 15 Jan masih ada slot pagi. Langsung booking aja?"
+  Assumptive close at INTENT stage:
+  - "Oke, saya buatkan booking untuk Facial Premium tanggal 20 Jan jam 2 PM ya. Nama lengkapnya siapa kak?"
+
+  **SALES KPIs:**
+  - Target conversion: 30%+ dari interested customers
+  - AOV increase: Suggest upsells to increase value per booking
+  - Promo acceptance: Offer promos when customer hesitates
   ` : ''}
 
   ${categoriesContext}
@@ -643,8 +728,12 @@ export async function POST(req: Request) {
 
       console.log(`🔑 Using customerId for tool execution: ${executionCustomerId}`);
 
-      // Execute tools
-      const toolResults = await executeToolUse(toolUses, executionCustomerId);
+      // Execute tools with conversationId for sales tracking
+      const toolResults = await executeToolUse(
+        toolUses,
+        executionCustomerId,
+        activeConversationId // Pass conversationId for sales funnel tracking
+      );
 
       // Format tool results for API
       const toolResultContent = formatToolResults(toolResults);
@@ -751,16 +840,20 @@ export async function POST(req: Request) {
       try {
         measureTime("Database Save Start");
 
-        // Get or create customer
-        // Use sessionId to identify web users, fallback to demo phone
-        const customerIdentifier = sessionId ? `web_${sessionId} ` : "081234567890";
-        const customer = await getOrCreateCustomer(customerIdentifier);
+        // Use the conversation created earlier for sales tracking
+        // If not available (shouldn't happen), create it now as fallback
+        let conversationIdForSave = activeConversationId;
 
-        // Get active conversation, or create one if it doesn't exist
-        let conversation = await getActiveConversation(customer.id);
-        if (!conversation) {
-          conversation = await createConversation(customer.id);
-          console.log("📝 Created new conversation for customer");
+        if (!conversationIdForSave) {
+          const customerIdentifier = sessionId ? `web_${sessionId}` : "081234567890";
+          const customer = await getOrCreateCustomer(customerIdentifier);
+
+          let conversation = await getActiveConversation(customer.id);
+          if (!conversation) {
+            conversation = await createConversation(customer.id);
+            console.log("📝 Created new conversation for customer (fallback)");
+          }
+          conversationIdForSave = conversation.id;
         }
 
         // Save the latest user message (which is the one being responded to)
@@ -771,13 +864,13 @@ export async function POST(req: Request) {
           .find((m: any) => m.role === "user");
 
         if (latestUserMessage) {
-          await addMessage(conversation.id, "user", latestUserMessage.content);
+          await addMessage(conversationIdForSave, "user", latestUserMessage.content);
           console.log("✅ User message saved to database");
         }
 
         // Save assistant response
         await addMessage(
-          conversation.id,
+          conversationIdForSave,
           "assistant",
           JSON.stringify({
             response: validatedResponse.response,
@@ -787,7 +880,7 @@ export async function POST(req: Request) {
         console.log("✅ Assistant message saved to database");
 
         // Update conversation metadata
-        await updateConversationMetadata(conversation.id, {
+        await updateConversationMetadata(conversationIdForSave, {
           userMood: validatedResponse.user_mood,
           categories: validatedResponse.matched_categories || [],
           contextUsed: validatedResponse.debug.context_used,
@@ -807,13 +900,13 @@ export async function POST(req: Request) {
           try {
             // CRITICAL FIX: Update conversation status to REDIRECTED
             await redirectConversation(
-              conversation.id,
+              conversationIdForSave,
               responseWithId.redirect_to_agent.reason || "User requested human assistance"
             );
             console.log("✅ Conversation status changed to REDIRECTED");
 
             console.log("📤 Sending notification to agent...");
-            const { emailSent, whatsappSent } = await notifyAgent(conversation.id);
+            const { emailSent, whatsappSent } = await notifyAgent(conversationIdForSave);
 
             // Update notification tracking in database
             const method = [emailSent && 'email', whatsappSent && 'whatsapp']
@@ -821,7 +914,7 @@ export async function POST(req: Request) {
               .join(',');
             const status = emailSent || whatsappSent ? 'sent' : 'failed';
 
-            await updateNotificationStatus(conversation.id, status, method);
+            await updateNotificationStatus(conversationIdForSave, status, method);
             console.log(`✅ Agent notified via: ${method} `);
           } catch (notificationError) {
             console.error("❌ Failed to notify agent:", notificationError);
