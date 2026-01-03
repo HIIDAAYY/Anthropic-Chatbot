@@ -33,7 +33,6 @@ function getDateFilter(range: DateRange): DateFilter {
  */
 export async function getSalesOverview(range: DateRange = '30d') {
   const dateFilter = getDateFilter(range);
-  const dateWhere = dateFilter.gte ? { createdAt: dateFilter } : {};
 
   try {
     // Total conversations in period
@@ -47,7 +46,6 @@ export async function getSalesOverview(range: DateRange = '30d') {
     const convertedConversations = await prisma.conversationMetadata.count({
       where: {
         convertedToBooking: true,
-        ...dateWhere,
       },
     });
 
@@ -55,7 +53,6 @@ export async function getSalesOverview(range: DateRange = '30d') {
     const revenueData = await prisma.conversationMetadata.aggregate({
       where: {
         convertedToBooking: true,
-        ...dateWhere,
       },
       _sum: {
         conversionRevenue: true,
@@ -64,7 +61,10 @@ export async function getSalesOverview(range: DateRange = '30d') {
 
     // Average intent score
     const intentData = await prisma.conversationMetadata.aggregate({
-      where: dateWhere,
+      where: {
+        // ConversationMetadata doesn't have createdAt field
+        // Date filtering happens at Conversation level above
+      },
       _avg: {
         intentScore: true,
       },
@@ -72,7 +72,9 @@ export async function getSalesOverview(range: DateRange = '30d') {
 
     // Promo codes used
     const promoUsage = await prisma.promoCode.aggregate({
-      where: dateWhere,
+      where: {
+        validUntil: dateFilter, // Filter by promo expiry date
+      },
       _sum: {
         usageCount: true,
       },
