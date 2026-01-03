@@ -781,20 +781,20 @@ export async function applyDiscountCode(
       };
     }
 
-    // Check expiry
+    // Check expiry (schema only has validUntil, no validFrom)
     const now = new Date();
-    if (now < promo.validFrom || now > promo.validUntil) {
+    if (promo.validUntil && now > promo.validUntil) {
       return {
         valid: false,
         discountCode,
         finalPrice: 0,
         originalPrice: 0,
-        errorMessage: `Kode promo sudah expired (berlaku ${promo.validFrom.toLocaleDateString()} - ${promo.validUntil.toLocaleDateString()})`,
+        errorMessage: `Kode promo sudah expired (berlaku sampai ${promo.validUntil.toLocaleDateString("id-ID")})`,
       };
     }
 
-    // Check usage limit
-    if (promo.maxUsageCount && promo.currentUsageCount >= promo.maxUsageCount) {
+    // Check usage limit (schema uses usageCount, not currentUsageCount)
+    if (promo.maxUsageCount && promo.usageCount >= promo.maxUsageCount) {
       return {
         valid: false,
         discountCode,
