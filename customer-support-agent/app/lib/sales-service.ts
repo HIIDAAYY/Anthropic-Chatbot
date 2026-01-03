@@ -836,23 +836,22 @@ export async function applyDiscountCode(
       };
     }
 
+    // Schema uses discountValue for percentage value
     let discountAmount = 0;
-    if (promo.discountPercent) {
-      discountAmount = Math.floor((originalPrice * promo.discountPercent) / 100);
-    } else if (promo.discountAmount) {
-      discountAmount = promo.discountAmount;
+    if (promo.discountValue) {
+      discountAmount = Math.floor((originalPrice * promo.discountValue) / 100);
     }
 
     const finalPrice = originalPrice - discountAmount;
 
     console.log(
-      `✅ Promo valid: ${promo.discountPercent || 0}% off, save Rp ${discountAmount}`
+      `✅ Promo valid: ${promo.discountValue || 0}% off, save Rp ${discountAmount}`
     );
 
     return {
       valid: true,
       discountCode,
-      discountPercent: promo.discountPercent || undefined,
+      discountPercent: promo.discountValue || undefined,
       discountAmount,
       finalPrice,
       originalPrice,
@@ -891,9 +890,13 @@ export async function trackConversionToBooking(
       return;
     }
 
-    const conversionTime = Math.floor(
+    // Calculate conversion duration in seconds for logging
+    const conversionDurationSeconds = Math.floor(
       (Date.now() - conversation.startedAt.getTime()) / 1000
-    ); // seconds
+    );
+
+    // Schema expects DateTime for conversionTime, so use current time
+    const conversionTimeDate = new Date();
 
     await prisma.conversationMetadata.upsert({
       where: { conversationId },
@@ -902,18 +905,18 @@ export async function trackConversionToBooking(
         linkedBookingId: bookingId,
         convertedToBooking: true,
         conversionRevenue: revenue,
-        conversionTime,
+        conversionTime: conversionTimeDate,
       },
       update: {
         linkedBookingId: bookingId,
         convertedToBooking: true,
         conversionRevenue: revenue,
-        conversionTime,
+        conversionTime: conversionTimeDate,
       },
     });
 
     console.log(
-      `✅ Conversion tracked: Rp ${revenue} in ${conversionTime}s (${(conversionTime / 60).toFixed(1)} minutes)`
+      `✅ Conversion tracked: Rp ${revenue} in ${conversionDurationSeconds}s (${(conversionDurationSeconds / 60).toFixed(1)} minutes)`
     );
   } catch (error) {
     console.error("❌ Failed to track conversion:", error);
