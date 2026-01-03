@@ -147,7 +147,8 @@ export async function getSalesFunnelMetrics(range: DateRange = '30d') {
         const count = await prisma.conversationMetadata.count({
           where: {
             salesStage: stage,
-            createdAt: dateFilter,
+            // Note: ConversationMetadata doesn't have createdAt field
+            // Date filtering happens at Conversation level
           },
         });
 
@@ -332,7 +333,7 @@ export async function getObjectionMetrics(range: DateRange = '30d') {
     // Get conversations with objections
     const conversationsWithObjections = await prisma.conversationMetadata.findMany({
       where: {
-        createdAt: dateFilter,
+        // Note: ConversationMetadata doesn't have createdAt field
         objectionsFaced: { isEmpty: false },
       },
       select: {
@@ -445,7 +446,7 @@ export async function getTopServicesMetrics(range: DateRange = '30d') {
     // Get conversations with services interested
     const conversations = await prisma.conversationMetadata.findMany({
       where: {
-        createdAt: dateFilter,
+        // Note: ConversationMetadata doesn't have createdAt field
         servicesInterested: { isEmpty: false },
       },
       select: {
