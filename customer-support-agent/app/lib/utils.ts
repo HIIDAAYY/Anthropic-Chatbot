@@ -378,5 +378,5 @@ export async function retrieveContext(
 
   // Use Bedrock if knowledgeBaseId is provided (for other knowledge bases)
   console.log("☁️ Using AWS Bedrock for RAG");
-  return retrieveContextFromBedrock(query, knowledgeBaseId, n);
+  return retrieveContextFromBedrock(query, knowledgeBaseId as string, n);
 }
