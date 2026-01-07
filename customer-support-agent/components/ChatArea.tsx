@@ -135,7 +135,27 @@ const MessageContent = ({
       console.log("🔧 Extracted from code block");
     }
 
-    // Check if the content is JSON with a 'response' field
+    // NEW: Check if response contains trailing JSON object
+    // Pattern: text content followed by newline and JSON object
+    const trailingJsonMatch = result.match(/^([\s\S]*?)\n+(\{[\s\S]*\})$/);
+    if (trailingJsonMatch) {
+      const textPart = trailingJsonMatch[1].trim();
+      const jsonPart = trailingJsonMatch[2].trim();
+
+      // Try to parse the JSON part to confirm it's valid JSON
+      try {
+        const jsonObj = JSON.parse(jsonPart);
+        // If it has typical response fields, this is likely the trailing JSON
+        if (jsonObj.thinking || jsonObj.response || jsonObj.user_mood) {
+          console.log("🔧 Removed trailing JSON object from response");
+          result = textPart;
+        }
+      } catch (e) {
+        // Not valid JSON, keep original
+      }
+    }
+
+    // Check if the entire content is JSON with a 'response' field
     if (result.startsWith('{')) {
       try {
         const innerParsed = JSON.parse(result);
@@ -154,46 +174,57 @@ const MessageContent = ({
 
   // Parse JSON immediately during render for assistant messages
   if (role === "assistant") {
-    try {
-      console.log("🔍 MessageContent - Attempting to parse content:", content.substring(0, 200));
-      const parsed = JSON.parse(content);
-      console.log("✅ MessageContent - Parsed object keys:", Object.keys(parsed));
+    // Check if content is JSON (starts with '{')
+    if (content.trim().startsWith('{')) {
+      try {
+        console.log("🔍 MessageContent - Attempting to parse JSON content");
+        const parsed = JSON.parse(content);
+        console.log("✅ MessageContent - Parsed object keys:", Object.keys(parsed));
 
-      // Extract the actual response text (handles nested JSON)
-      const actualResponse = extractResponse(parsed.response);
-      console.log("📝 Actual response (first 100 chars):", actualResponse?.substring(0, 100));
+        // Extract the actual response text (handles nested JSON)
+        const actualResponse = extractResponse(parsed.response);
+        console.log("📝 Actual response (first 100 chars):", actualResponse?.substring(0, 100));
 
-      // Show thinking state if response is empty or placeholder
-      if (!actualResponse || actualResponse === "..." || actualResponse.length === 0) {
+        // Show thinking state if response is empty or placeholder
+        if (!actualResponse || actualResponse === "..." || actualResponse.length === 0) {
+          return (
+            <div className="flex items-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2" />
+              <span>{parsed.thinking || "Thinking..."}</span>
+            </div>
+          );
+        }
+
+        // Render the actual response
         return (
-          <div className="flex items-center">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2" />
-            <span>{parsed.thinking || "Thinking..."}</span>
-          </div>
+          <>
+            <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeHighlight]}>
+              {actualResponse}
+            </ReactMarkdown>
+            {parsed.redirect_to_agent && parsed.redirect_to_agent.should_redirect && (
+              <UISelector redirectToAgent={parsed.redirect_to_agent} />
+            )}
+          </>
+        );
+      } catch (error) {
+        // If parsing fails, treat as plain text
+        console.error("❌ MessageContent - JSON parse failed:", error);
+        console.error("❌ MessageContent - Content that failed to parse:", content);
+        return (
+          <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeHighlight]}>
+            {content}
+          </ReactMarkdown>
         );
       }
-
-      // Render the actual response
-      return (
-        <>
-          <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeHighlight]}>
-            {actualResponse}
-          </ReactMarkdown>
-          {parsed.redirect_to_agent && parsed.redirect_to_agent.should_redirect && (
-            <UISelector redirectToAgent={parsed.redirect_to_agent} />
-          )}
-        </>
-      );
-    } catch (error) {
-      // If parsing fails, treat as plain text
-      console.error("❌ MessageContent - JSON parse failed:", error);
-      console.error("❌ MessageContent - Content that failed to parse:", content);
-      return (
-        <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeHighlight]}>
-          {content}
-        </ReactMarkdown>
-      );
     }
+
+    // Content is plain text, render directly
+    console.log("📝 MessageContent - Rendering plain text response");
+    return (
+      <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeHighlight]}>
+        {content}
+      </ReactMarkdown>
+    );
   }
 
   // For user messages, render as-is
@@ -584,7 +615,7 @@ function ChatArea() {
         newMessages[lastIndex] = {
           id: crypto.randomUUID(),
           role: "assistant",
-          content: JSON.stringify(data),
+          content: data.response || JSON.stringify(data), // Use response text directly, fallback to JSON if missing
         };
         return newMessages;
       });
