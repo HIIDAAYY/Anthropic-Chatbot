@@ -189,8 +189,6 @@ export async function POST(req: Request) {
           });
           console.log(`💾 Saved clinic context to conversation: ${detectedKb.clinicId}`);
         }
-      } else if (typeof detectedKb === "string") {
-        console.log(`🎯 Auto-detected Knowledge Base: ${detectedKb.toUpperCase()}`);
       }
     } else {
       // NO clinic detected in latest message - try to retrieve from conversation metadata
