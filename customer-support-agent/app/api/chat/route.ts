@@ -72,6 +72,19 @@ function sanitizeHeaderValue(value: string): string {
   return value.replace(/[^\x00-\x7F]/g, "");
 }
 
+// Helper function to get clinic name by ID
+// Input: clinicId string
+// Output: full clinic name for system prompt
+function getClinicNameById(clinicId: string): string {
+  const clinicMap: Record<string, string> = {
+    "glow-clinic": "Klinik Glow Aesthetics",
+    "purity-clinic": "The Purity Aesthetic Clinic",
+    "pramudia-clinic": "Klinik Pramudia",
+    "beauty-plus-clinic": "Beauty+ Clinic",
+  };
+  return clinicMap[clinicId] || "Klinik Kecantikan & Gigi (Beauty & Dental Clinic)";
+}
+
 // Helper function to log timestamps for performance measurement
 // Input: label string and start time
 // Output: Logs the duration for the labeled operation
@@ -161,30 +174,119 @@ export async function POST(req: Request) {
     const detectedKb = detectKnowledgeBase(latestMessage);
     if (detectedKb) {
       knowledgeBaseId = detectedKb;
-      console.log(`🎯 Auto-detected Knowledge Base: ${knowledgeBaseId.toUpperCase()}`);
+
+      // Enhanced logging for multi-clinic detection
+      if (typeof detectedKb === "object" && "clinicId" in detectedKb) {
+        const clinicLog = detectedKb.clinicId
+          ? `${detectedKb.kb.toUpperCase()} - ${getClinicNameById(detectedKb.clinicId)}`
+          : `${detectedKb.kb.toUpperCase()} (Generic - All Clinics)`;
+        console.log(`🎯 Auto-detected Knowledge Base: ${clinicLog}`);
+
+        // SAVE detected clinic to conversation metadata for future reference
+        if (detectedKb.clinicId && activeConversationId) {
+          await updateConversationMetadata(activeConversationId, {
+            lastDetectedClinicId: detectedKb.clinicId,
+          });
+          console.log(`💾 Saved clinic context to conversation: ${detectedKb.clinicId}`);
+        }
+      } else if (typeof detectedKb === "string") {
+        console.log(`🎯 Auto-detected Knowledge Base: ${detectedKb.toUpperCase()}`);
+      }
+    } else {
+      // NO clinic detected in latest message - try to retrieve from conversation metadata
+      if (activeConversationId) {
+        try {
+          const conversation = await getActiveConversation(customerId!);
+          const savedClinicId = conversation?.metadata?.lastDetectedClinicId;
+
+          if (savedClinicId) {
+            knowledgeBaseId = { kb: "clinic", clinicId: savedClinicId };
+            console.log(`🔄 Retrieved clinic from conversation history: ${savedClinicId}`);
+            console.log(`🎯 Using saved Knowledge Base: CLINIC - ${getClinicNameById(savedClinicId)}`);
+          }
+        } catch (error) {
+          console.error("Error retrieving saved clinic context:", error);
+        }
+      }
     }
   }
 
   // Auto-detect business context for web chat (if not already provided from WhatsApp webhook)
-  if (!businessContext && knowledgeBaseId === "clinic") {
+  // Check both string "clinic" and object { kb: "clinic", ... }
+  const isClinicKb =
+    knowledgeBaseId === "clinic" ||
+    (typeof knowledgeBaseId === "object" &&
+      knowledgeBaseId !== null &&
+      "kb" in knowledgeBaseId &&
+      knowledgeBaseId.kb === "clinic");
+
+  if (!businessContext && isClinicKb) {
     try {
-      // Get the default clinic business for web chat
+      // First: Get actual Glow clinic from database (will be used for all demo clinics' bookings)
       const { PrismaClient } = await import("@prisma/client");
       const prisma = new PrismaClient();
 
-      const clinic = await prisma.business.findFirst({
+      const glowClinic = await prisma.business.findFirst({
         where: { type: "BEAUTY_CLINIC" },
         include: { settings: true },
       });
 
-      if (clinic) {
-        businessContext = {
-          businessId: clinic.id,
-          businessName: clinic.name,
-          businessType: clinic.type,
-          settings: clinic.settings,
+      // Check if we have a specific clinic detected
+      let specificClinicId: string | null = null;
+      if (
+        typeof knowledgeBaseId === "object" &&
+        knowledgeBaseId !== null &&
+        "clinicId" in knowledgeBaseId
+      ) {
+        specificClinicId = knowledgeBaseId.clinicId;
+      }
+
+      // If specific clinic detected, create business context with REAL database ID for bookings
+      if (specificClinicId && glowClinic) {
+        const clinicBusinessMap: Record<string, any> = {
+          "glow-clinic": {
+            businessId: glowClinic.id, // ← Use real DB ID
+            businessName: "Klinik Glow Aesthetics",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "purity-clinic": {
+            businessId: glowClinic.id, // ← Map to Glow's real DB ID (booking purpose)
+            businessName: "The Purity Aesthetic Clinic",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "pramudia-clinic": {
+            businessId: glowClinic.id, // ← Map to Glow's real DB ID (booking purpose)
+            businessName: "Klinik Pramudia",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "beauty-plus-clinic": {
+            businessId: glowClinic.id, // ← Map to Glow's real DB ID (booking purpose)
+            businessName: "Beauty+ Clinic",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
         };
-        console.log(`🏥 Auto-detected business for web: ${clinic.name}`);
+
+        if (clinicBusinessMap[specificClinicId]) {
+          businessContext = clinicBusinessMap[specificClinicId];
+          console.log(
+            `🏥 Auto-detected business for web: ${businessContext.businessName} (mapped to ${glowClinic.name} for bookings)`
+          );
+        }
+      }
+
+      // Fallback: If no specific clinic or not found, use Glow clinic
+      if (!businessContext && glowClinic) {
+        businessContext = {
+          businessId: glowClinic.id,
+          businessName: glowClinic.name,
+          businessType: glowClinic.type,
+          settings: glowClinic.settings,
+        };
+        console.log(`🏥 Auto-detected business for web: ${glowClinic.name} (database - fallback)`);
       }
 
       await prisma.$disconnect();
@@ -305,8 +407,26 @@ export async function POST(req: Request) {
       }
     }
 
-    if (knowledgeBaseId === "clinic") {
-      return `You are acting as a customer support assistant for Klinik Kecantikan & Gigi (Beauty & Dental Clinic), an Indonesian healthcare facility. You are chatting with patients/customers who need help with beauty treatments, dental services, appointments, pricing, and other clinic-related questions.
+    // Handle both string "clinic" and object { kb: "clinic", clinicId: "..." }
+    if (
+      knowledgeBaseId === "clinic" ||
+      (typeof knowledgeBaseId === "object" &&
+        knowledgeBaseId !== null &&
+        "kb" in knowledgeBaseId &&
+        knowledgeBaseId.kb === "clinic")
+    ) {
+      // Get clinic-specific name
+      let clinicName = "Klinik Kecantikan & Gigi (Beauty & Dental Clinic)";
+      if (
+        typeof knowledgeBaseId === "object" &&
+        knowledgeBaseId !== null &&
+        "clinicId" in knowledgeBaseId &&
+        knowledgeBaseId.clinicId
+      ) {
+        clinicName = getClinicNameById(knowledgeBaseId.clinicId);
+      }
+
+      return `You are acting as a customer support assistant for ${clinicName}, an Indonesian healthcare facility. You are chatting with patients/customers who need help with beauty treatments, dental services, appointments, pricing, and other clinic-related questions.
 
   **Important Guidelines:**
   - Respond in the SAME LANGUAGE as the customer's question (Indonesian or English)
@@ -341,10 +461,134 @@ export async function POST(req: Request) {
   - If a question requires personal account access, order tracking with specific order numbers, or complex issues, redirect to a human agent.
   - For general questions about fashion, style tips, or product recommendations, you can provide helpful guidance.
 
+  **CRITICAL: Response Style Guidelines - BE CONCISE BUT WARM**
+  
+  Your responses must be SHORT, SCANNABLE, and DIRECT while maintaining a FRIENDLY tone. Users find long responses boring!
+  
+  **Golden Rule:** Answer the EXACT question first (1-2 sentences), then offer more if relevant.
+  
+  **Length Rules by Query Type:**
+  
+  1️⃣ **Simple Factual Questions (price, hours, location):**
+     - MAX 1-2 sentences with direct answer
+     - Use warm greeting but keep it brief
+     - Example: "Berapa harga facial?" → "Hai! Facial Basic Rp 250k, Premium Rp 450k. Mau booking yang mana? 😊"
+     - NO long explanations unless asked
+  
+  2️⃣ **Service/Treatment Lists:**
+     - **CRITICAL**: When clinic has >7 services, ONLY show 5-7 POPULAR/RECOMMENDED items first
+     - Use bullet points: NAME + PRICE + SHORT description (1 line max per item)
+     - Prioritize: Best-sellers, mid-range prices, common requests
+     - Always mention: "Ada [X] treatment lainnya. Mau lihat semua?"
+     - Format for scannability with emojis
+     - Example for "Treatment apa saja di Glow?" (15+ items total):
+       
+       "Hai! Ini 7 treatment POPULER di Glow:
+       
+       💆‍♀️ **Facial:**
+       • Basic Glow - Rp 250k - Cocok untuk perawatan rutin
+       • Acne Solution - Rp 400k - Khusus kulit berjerawat
+       
+       ⚡ **Laser:**
+       • Laser CO2 - Rp 1,2jt - Atasi bekas jerawat dalam
+       • IPL Photofacial - Rp 900k - Cerahkan & hilangkan flek
+       
+       💉 **Injection:**
+       • Botox Forehead - Rp 2,5jt - Hilangkan kerutan dahi
+       • Skin Booster - Rp 2jt - Glowing & hidrasi maksimal
+       
+       🧪 **Peeling:**
+       • Chemical Peeling - Rp 350k - Eksfoliasi & cerahkan
+       
+       Ada 8 treatment lainnya (HIFU, Filler, dll). Mau lihat semua atau fokus ke kategori tertentu? 😊"
+     
+     - If user asks "lihat semua", THEN show complete list grouped by category
+     - If <7 services total, show all directly
+  
+  3️⃣ **Booking Requests:**
+     - Skip long process explanations
+     - Directly ask for needed info in friendly numbered format
+     - Keep it warm with emoji and friendly tone
+     - Example:
+       "Mau booking HIFU"
+       
+       "Siap! 😊 Untuk booking HIFU, aku butuh:
+       1️⃣ Tanggal & jam yang diinginkan
+       2️⃣ Nama lengkap kamu
+       3️⃣ Nomor HP yang bisa dihubungi"
+  
+  4️⃣ **Tool Results (list_services, check_availability):**
+     - Present data cleanly with emojis for scannability
+     - Use: ✅ (available) ❌ (not available) 📅 (date) 💰 (price) ⭐ (recommended)
+     - Example: "Slot hari Kamis: ✅ 10:00, ✅ 14:00, ❌ 16:00 (penuh)"
+  
+  5️⃣ **Sales/Upsell Suggestions:**
+     - Keep it ONE line, natural, and helpful (not pushy)
+     - Only if highly relevant to their inquiry
+     - Example: "💡 Fun fact: 85% customer kombinasi Facial + Peeling untuk hasil maksimal (hemat 15%!)"
+  
+  6️⃣ **Complex Questions (comparison, medical, consultation):**
+     - OK to be detailed BUT use structure: bullets, sections, emojis
+     - Break into digestible chunks
+     - Max 5-6 lines at a time
+  
+  **Tone Guidelines:**
+  - Use "Hai/Halo" or "Hi" for warmth
+  - Emojis: 1-2 per response (😊 💎 ✨ 💡) - don't overuse
+  - Friendly words: "aku", "kamu", "yuk", "siap!"
+  - End with engaging question or CTA
+  - Keep sentences short and conversational
+  
+  **Formatting for Mobile Readability:**
+  - Line breaks between sections
+  - Bold for key info: **service names**, **prices**, **dates**
+  - Bullets for lists
+  - Max 4-5 visible lines before line break
+  
+  **What NOT to do:**
+  ❌ "Terima kasih telah menghubungi kami! Saya dengan senang hati akan membantu Anda..."
+  ❌ Long paragraphs explaining policies
+  ❌ Listing all 15 services without asking first
+  ❌ Multiple sentences when one is enough
+  
+  **What TO do:**
+  ✅ "Botox di Glow Rp 2,5jt untuk area forehead. Mau cek slot tersedia? 😊"
+  ✅ Direct answer first, then offer details
+  ✅ Short sentences, active voice
+  ✅ Warm but efficient
+
   **Available Tools:**
   You have access to tools for real-time information. When needed:
 
   ${businessContext ? `
+  ═══════════════════════════════════════════════════════════════════════════
+  🚨 CRITICAL INSTRUCTION - READ THIS FIRST - THIS IS MANDATORY 🚨
+  ═══════════════════════════════════════════════════════════════════════════
+
+  **WHEN CUSTOMER WANTS TO BOOK A SERVICE:**
+
+  ❌ WRONG (Do NOT do this):
+  - Asking questions one by one: "Kapan Anda ingin datang?"
+  - Saying "Mari saya tanyakan beberapa detail" without listing questions
+  - Asking for date first, then other details later
+
+  ✅ CORRECT (You MUST do this):
+  You MUST ask for ALL booking details in ONE response using this EXACT format:
+
+  "Baik! Untuk melanjutkan booking, saya butuh beberapa informasi:
+
+  1️⃣ **Tanggal** - Kapan Anda ingin datang? (contoh: 15 Januari 2026)
+  2️⃣ **Jam** - Jam berapa yang diinginkan? (contoh: 14:00 atau 2 siang)
+  3️⃣ **Nama Lengkap** - Siapa nama Anda?
+  4️⃣ **Nomor Telepon** - Nomor HP yang bisa dihubungi?
+  5️⃣ **Email** (opsional) - Alamat email Anda?
+
+  Mohon berikan semua informasi di atas ya! 😊"
+
+  THIS IS NOT OPTIONAL. LIST ALL 5 QUESTIONS WITH EMOJIS (1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣) EVERY TIME!
+
+  ═══════════════════════════════════════════════════════════════════════════
+
   **Booking System Tools (Available for ${businessContext.businessName}):**
   - Use "list_services" to show available treatments/tours and pricing
   - Use "check_availability" to check available time slots for a service on a specific date
@@ -407,7 +651,6 @@ export async function POST(req: Request) {
   - When calling create_booking, use businessId: "${businessContext.businessId}"
   - ALWAYS call list_services FIRST to get correct service IDs before creating booking
   - ALWAYS check availability before creating or rescheduling bookings
-  - Confirm all booking details with customer before creating: date, time, service, name, phone, email
   - After creating booking, offer to create payment link
   - Payment options: BANK_TRANSFER (BCA/BNI/BRI/Mandiri/Permata VA), GOPAY, QRIS, OVO, SHOPEEPAY
 
@@ -499,67 +742,84 @@ export async function POST(req: Request) {
 
   DO NOT use triple-backticks with "json" or any markdown code block formatting. Return ONLY the raw JSON object.
 
-  Here are a few examples of how your response should look like:
+  Here are a few examples of how your response should look like (following CONCISE BUT WARM style):
 
-  Example 1 - Indonesian customer asking about booking (with knowledge base info):
+  Example 1 - Simple price question (CONCISE & WARM):
   {
-    "thinking": "Customer asking about how to book a facial treatment, found relevant information in knowledge base",
-    "response": "Halo! Untuk booking facial treatment, Anda bisa memberitahu tanggal dan jam yang diinginkan, lalu saya akan cek ketersediaan slot. Klinik kami menyediakan berbagai treatment facial seperti Facial Basic, Acne Treatment, dan Anti-Aging. Kapan Anda ingin booking?",
+    "thinking": "Simple price inquiry about facial - be direct but friendly",
+    "response": "Hai! Facial di Glow ada beberapa pilihan:\n\n• Basic Glow - Rp 250k - Cocok untuk perawatan rutin\n• Premium Hydrating - Rp 450k - Kulit kering & dehidrasi\n• Acne Solution - Rp 400k - Jerawat & bekas jerawat\n\nMau booking yang mana? 😊",
     "user_mood": "curious",
-    "suggested_questions": ["Berapa harga facial treatment?", "Jam berapa saja klinik buka?", "Apakah perlu DP dulu?"],
+    "suggested_questions": ["Booking kapan tersedia?", "Ada promo?"],
     "debug": {
       "context_used": true
     },
-    "matched_categories": ["booking", "services"],
+    "matched_categories": ["pricing", "services"],
     "redirect_to_agent": {
       "should_redirect": false
     }
   }
 
-  Example 2 - English customer asking about clinic services (with knowledge base info):
+  Example 2 - Booking request (DIRECT):
   {
-    "thinking": "Customer asking about available dental services, providing information from knowledge base",
-    "response": "We offer various dental services including teeth whitening, scaling, filling, root canal treatment, and dental implants. All treatments are performed by experienced dentists. Would you like to book an appointment for a specific treatment?",
-    "user_mood": "neutral",
-    "suggested_questions": ["How much does teeth whitening cost?", "What are the available time slots?", "Do you accept insurance?"],
-    "debug": {
-      "context_used": true
-    },
-    "matched_categories": ["services", "dental"],
-    "redirect_to_agent": {
-      "should_redirect": false
-    }
-  }
-
-  Example 3 - Customer needs human agent (complex medical question):
-  {
-    "thinking": "Customer asking detailed medical question about treatment suitability, should redirect to doctor",
-    "response": "Untuk pertanyaan medis yang spesifik seperti ini, sebaiknya Anda berkonsultasi langsung dengan dokter kami. Saya bisa bantu buatkan appointment konsultasi dengan dokter. Apakah Anda ingin booking konsultasi?",
-    "user_mood": "concerned",
+    "thinking": "Customer wants to book HIFU, ask for details directly with warm tone",
+    "response": "Siap! 😊 Untuk booking HIFU, aku butuh:\n\n1️⃣ Tanggal & jam yang diinginkan\n2️⃣ Nama lengkap kamu\n3️⃣ Nomor HP yang bisa dihubungi\n\nBerapa tanggal maunya?",
+    "user_mood": "positive",
     "suggested_questions": [],
+    "debug": {
+      "context_used": false
+    },
+    "matched_categories": ["booking"],
+    "tools_used": [],
+    "redirect_to_agent": {
+      "should_redirect": false
+    }
+  }
+
+  Example 3 - Service list from tool (WITH SHORT DESCRIPTIONS):
+  {
+    "thinking": "Called list_services, present cleanly with short descriptions per user preference",
+    "response": "Hi! Treatment laser di Purity:\n\n💎 **Advanced:**\n• Laser CO2 Fractional - Rp 1,2jt - Atasi acne scar & wrinkles dalam\n• IPL Photofacial - Rp 900k - Cerahkan & ratakan tone kulit\n\n⚡ **Premium:**\n• Laser Toning - Rp 800k - Refresh & brightening wajah\n• Microneedling RF - Rp 1jt - Kencangkan & perbaiki tekstur\n\nMau cek slot tersedia? 😊",
+    "user_mood": "interested",
+    "suggested_questions": ["Beda laser CO2 sama IPL apa?", "Ada slot hari Kamis?"],
+    "debug": {
+      "context_used": true
+    },
+    "matched_categories": ["services"],
+    "tools_used": ["list_services"],
+    "redirect_to_agent": {
+      "should_redirect": false
+    }
+  }
+
+  Example 4 - Question with upsell (ONE LINE, NATURAL):
+  {
+    "thinking": "Customer asking about basic facial, mention upsell naturally in one line",
+    "response": "Facial Basic di Glow Rp 250k, cocok untuk perawatan rutin. 💡 Fun fact: 85% customer kombinasi dengan Chemical Peeling (hemat 15%)!\n\nMau booking Facial Basic aja atau mau paket combo?",
+    "user_mood": "considering",
+    "suggested_questions": ["Apa bedanya combo vs basic aja?", "Booking hari apa ada slot?"],
+    "debug": {
+      "context_used": true
+    },
+    "matched_categories": ["services", "upsell"],
+    "tools_used": ["get_upsell_recommendations"],
+    "redirect_to_agent": {
+      "should_redirect": false
+    }
+  }
+
+  Example 5 - Medical question redirect (WARM BUT CLEAR):
+  {
+    "thinking": "Complex medical question, redirect to doctor but stay warm",
+    "response": "Untuk pertanyaan medis spesifik gini, lebih baik konsultasi langsung sama dokter kami ya 😊\n\nAku bisa buatin appointment konsultasi. Mau?",
+    "user_mood": "concerned",
+    "suggested_questions": ["Booking konsultasi dokter", "Berapa biaya konsultasi?"],
     "debug": {
       "context_used": false
     },
     "matched_categories": ["medical_consultation"],
     "redirect_to_agent": {
       "should_redirect": true,
-      "reason": "Requires professional medical consultation from doctor"
-    }
-  }
-
-  Example 4 - Question completely unrelated to booking services:
-  {
-    "thinking": "Customer asking about stock market investment which is completely unrelated to clinic or travel booking services. I should politely redirect.",
-    "response": "Halo! Sepertinya pertanyaan Anda tidak terkait dengan layanan booking klinik atau travel. Saya di sini khusus membantu Anda untuk booking treatment kecantikan, perawatan gigi, atau paket wisata. Apakah Anda memerlukan bantuan untuk booking layanan kami?",
-    "user_mood": "neutral",
-    "suggested_questions": ["Layanan apa saja yang tersedia?", "Bagaimana cara booking treatment?", "Berapa harga facial?"],
-    "debug": {
-      "context_used": false
-    },
-    "matched_categories": [],
-    "redirect_to_agent": {
-      "should_redirect": true,
-      "reason": "Question completely unrelated to booking services (asking about stock market)"
+      "reason": "Requires professional medical consultation"
     }
   }
   `

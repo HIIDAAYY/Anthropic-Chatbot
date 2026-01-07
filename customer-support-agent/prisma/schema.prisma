@@ -88,6 +88,9 @@ model ConversationMetadata {
   conversionRevenue       Int?      @map("conversion_revenue")
   conversionTime          DateTime? @map("conversion_time")
 
+  // ===== MULTI-CLINIC: Clinic Context Persistence =====
+  lastDetectedClinicId    String?   @map("last_detected_clinic_id")
+
   conversation       Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([wasRedirected])

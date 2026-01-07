@@ -167,6 +167,7 @@ export async function updateConversationMetadata(
     resolvedAt?: Date;
     resolvedBy?: string;
     resolutionNotes?: string;
+    lastDetectedClinicId?: string;
   }
 ) {
   try {
@@ -175,19 +176,25 @@ export async function updateConversationMetadata(
       where: { conversationId },
     });
 
+    // TEMPORARY FIX: Remove lastDetectedClinicId until Prisma Client is regenerated
+    const safeData: any = { ...data };
+    if ('lastDetectedClinicId' in safeData) {
+      delete safeData.lastDetectedClinicId;
+    }
+
     let metadata;
     if (existing) {
       // Update existing metadata
       metadata = await prisma.conversationMetadata.update({
         where: { conversationId },
-        data,
+        data: safeData,
       });
     } else {
       // Create new metadata
       metadata = await prisma.conversationMetadata.create({
         data: {
           conversationId,
-          ...data,
+          ...safeData,
         },
       });
     }

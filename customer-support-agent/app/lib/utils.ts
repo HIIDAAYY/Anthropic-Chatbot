@@ -25,58 +25,90 @@ export interface RAGSource {
 
 /**
  * Retrieve context from Pinecone vector database
+ * Now supports multi-clinic filtering with clinicId!
  */
 export async function retrieveContextFromPinecone(
   query: string,
   n: number = 3,
-  sourceFilter?: string, // Optional filter: "clinic" or empty for all
+  sourceFilter?: string | { kb: string; clinicId: string | null }, // Enhanced to support clinic-specific filtering
 ): Promise<{
   context: string;
   isRagWorking: boolean;
   ragSources: RAGSource[];
 }> {
   try {
-    console.log("🔍 Querying Pinecone with:", query, sourceFilter ? `(filter: ${sourceFilter})` : "(no filter)");
+    console.log(
+      "🔍 Querying Pinecone with:",
+      query,
+      sourceFilter ? `(filter: ${JSON.stringify(sourceFilter)})` : "(no filter)"
+    );
 
     // Build native Pinecone filter based on sourceFilter
     let pineconeFilter: Record<string, any> | undefined;
 
-    if (sourceFilter === "clinic") {
-      // For clinic: Filter documents with source = "clinic"
+    // Handle new object format from detectKnowledgeBase()
+    if (
+      typeof sourceFilter === "object" &&
+      sourceFilter !== null &&
+      "kb" in sourceFilter
+    ) {
+      if (sourceFilter.kb === "clinic") {
+        if (sourceFilter.clinicId) {
+          // SPECIFIC CLINIC: Compound filter (source=clinic AND clinicId=specific)
+          pineconeFilter = {
+            $and: [
+              { source: { $eq: "clinic" } },
+              { clinicId: { $eq: sourceFilter.clinicId } },
+            ],
+          };
+          console.log(
+            `🏥 Using native Pinecone filter for SPECIFIC CLINIC: ${sourceFilter.clinicId}`
+          );
+        } else {
+          // GENERIC CLINIC: All clinics (source=clinic only)
+          pineconeFilter = { source: { $eq: "clinic" } };
+          console.log("🏥 Using native Pinecone filter for ALL CLINICS");
+        }
+      }
+    } else if (sourceFilter === "clinic") {
+      // Backward compatibility: string "clinic"
       pineconeFilter = { source: { $eq: "clinic" } };
-      console.log("🏥 Using native Pinecone filter for CLINIC");
+      console.log("🏥 Using native Pinecone filter for CLINIC (backward compat)");
     } else if (sourceFilter) {
-      // For other named sources
+      // For other named sources (string)
       pineconeFilter = { source: { $eq: sourceFilter } };
       console.log(`📍 Using native Pinecone filter for source: ${sourceFilter}`);
     }
-    // If no sourceFilter: no filter = query all sources (UrbanStyle + others)
+    // If no sourceFilter: no filter = query all sources
 
     // Query Pinecone with native filtering
     const results = await queryPineconeWithText(query, n, pineconeFilter);
 
-    // Parse Pinecone results (no post-query filtering needed!)
+    // Parse Pinecone results with enhanced metadata
     const ragSources: RAGSource[] = results.matches
       .filter((match: any) => match.metadata?.text)
       .map((match: any, index: number) => ({
         id: match.id || `pinecone-${index}`,
-        fileName: match.metadata?.title || match.metadata?.category || "Knowledge Base",
+        fileName:
+          match.metadata?.title ||
+          match.metadata?.category ||
+          "Knowledge Base",
         snippet: match.metadata?.text || "",
         score: match.score || 0,
-        source: match.metadata?.source || "default", // Include source in object
+        source: match.metadata?.source || "default",
+        clinicId: match.metadata?.clinicId, // NEW: Include clinicId
+        clinicName: match.metadata?.clinicName, // NEW: Include clinicName
       }));
 
     console.log(
       "✅ Pinecone returned",
       ragSources.length,
       "results",
-      sourceFilter ? `(filtered to ${sourceFilter})` : "(all sources)"
+      sourceFilter ? `(filtered)` : "(all sources)"
     );
 
     // Build context from results
-    const context = ragSources
-      .map((source) => source.snippet)
-      .join("\n\n");
+    const context = ragSources.map((source) => source.snippet).join("\n\n");
 
     return {
       context,
@@ -160,57 +192,181 @@ export async function retrieveContextFromBedrock(
 
 /**
  * Auto-detect knowledge base based on query content
- * Returns 'clinic' for healthcare-related queries, undefined if no clinic keywords detected (no default KB)
+ * Returns object with kb type and specific clinicId, or undefined if no clinic keywords detected
+ * Now supports multi-clinic detection!
  */
-export function detectKnowledgeBase(query: string): string | undefined {
+export function detectKnowledgeBase(
+  query: string
+): { kb: string; clinicId: string | null } | undefined {
   const lowerQuery = query.toLowerCase();
 
-  // Keywords untuk Clinic - ONLY clinic, no other business types
-  const clinicKeywords = [
-    'klinik', 'clinic', 'dokter', 'doctor', 'gigi', 'dental', 'teeth', 'tooth',
-    'perawatan wajah', 'facial', 'skin', 'kulit', 'beauty treatment',
-    'botox', 'filler', 'whitening', 'pemutihan', 'scaling', 'bleaching',
-    'cabut gigi', 'tambal', 'filling', 'implant', 'veneer', 'crown', 'behel', 'kawat gigi', 'braces',
-    'konsultasi dokter', 'appointment', 'janji temu', 'jadwal praktek', 'jadwal dokter', 'booking',
-    'acne', 'jerawat', 'komedo', 'pori-pori', 'flek hitam', 'aging', 'keriput', 'wrinkle',
-    'laser', 'peeling', 'mesotherapy', 'microdermabrasi', 'carbon laser',
-    'sakit gigi', 'gusi', 'gum', 'karang gigi', 'gigi berlubang', 'rontgen gigi',
-    'perawatan kecantikan', 'treatment', 'terapi', 'prosedur medis', 'estetika'
-  ];
+  // CLINIC-SPECIFIC KEYWORDS (check first for specific clinic detection)
+  const CLINIC_DETECTION_MAP: Record<string, string[]> = {
+    "glow-clinic": [
+      "glow",
+      "glow aesthetic",
+      "senopati",
+      "blok m",
+      "dr amanda",
+      "amanda kusuma",
+    ],
+    "purity-clinic": [
+      "purity",
+      "the purity",
+      "gereja ayam",
+      "pasar baru",
+      "dr jonathan",
+      "dr fairly",
+      "jonathan anindita",
+      "fairly thamrin",
+    ],
+    "pramudia-clinic": [
+      "pramudia",
+      "kh mansyur",
+      "tambora",
+      "jembatan lima",
+      "dr anthony handoko",
+      "kulit kelamin",
+      "dermatologi",
+      "venerologi",
+      "vitiligo",
+      "sexual health",
+    ],
+    "beauty-plus-clinic": [
+      "beauty plus",
+      "beauty+",
+      "gajah mada",
+      "pik",
+      "pluit",
+      "tanjung duren",
+      "dharmawangsa",
+      "summarecon bekasi",
+      "fat laser",
+    ],
+  };
 
-  const clinicMatches = clinicKeywords.filter(kw => lowerQuery.includes(kw)).length;
-
-  console.log(`🔍 KB Detection - Query: "${query.slice(0, 50)}..."`);
-  console.log(`   Clinic matches: ${clinicMatches}`);
-
-  if (clinicMatches > 0) {
-    console.log('🏥 Auto-detected: CLINIC');
-    return 'clinic';
+  // Check for specific clinic keywords first
+  for (const [clinicId, keywords] of Object.entries(CLINIC_DETECTION_MAP)) {
+    if (keywords.some((kw) => lowerQuery.includes(kw))) {
+      console.log(`🔍 KB Detection - Query: "${query.slice(0, 50)}..."`);
+      console.log(`🏥 Auto-detected SPECIFIC clinic: ${clinicId}`);
+      return { kb: "clinic", clinicId };
+    }
   }
 
-  // NO DEFAULT KB - return undefined if no clinic match
-  console.log('❌ No clinic keywords detected - no KB used');
+  // GENERIC CLINIC KEYWORDS (fallback to search all clinics)
+  const genericClinicKeywords = [
+    "klinik",
+    "clinic",
+    "dokter",
+    "doctor",
+    "gigi",
+    "dental",
+    "teeth",
+    "tooth",
+    "perawatan wajah",
+    "facial",
+    "skin",
+    "kulit",
+    "beauty treatment",
+    "botox",
+    "filler",
+    "whitening",
+    "pemutihan",
+    "scaling",
+    "bleaching",
+    "cabut gigi",
+    "tambal",
+    "filling",
+    "implant",
+    "veneer",
+    "crown",
+    "behel",
+    "kawat gigi",
+    "braces",
+    "konsultasi dokter",
+    "appointment",
+    "janji temu",
+    "jadwal praktek",
+    "jadwal dokter",
+    "booking",
+    "acne",
+    "jerawat",
+    "komedo",
+    "pori-pori",
+    "flek hitam",
+    "aging",
+    "keriput",
+    "wrinkle",
+    "laser",
+    "peeling",
+    "mesotherapy",
+    "microdermabrasi",
+    "carbon laser",
+    "sakit gigi",
+    "gusi",
+    "gum",
+    "karang gigi",
+    "gigi berlubang",
+    "rontgen gigi",
+    "perawatan kecantikan",
+    "treatment",
+    "terapi",
+    "prosedur medis",
+    "estetika",
+  ];
+
+  const genericMatches = genericClinicKeywords.filter((kw) =>
+    lowerQuery.includes(kw)
+  ).length;
+
+  console.log(`🔍 KB Detection - Query: "${query.slice(0, 50)}..."`);
+  console.log(`   Generic clinic matches: ${genericMatches}`);
+
+  if (genericMatches > 0) {
+    console.log("🏥 Auto-detected: GENERIC clinic (search all clinics)");
+    return { kb: "clinic", clinicId: null }; // null = search all clinics
+  }
+
+  // NO CLINIC KEYWORDS - return undefined
+  console.log("❌ No clinic keywords detected - no KB used");
   return undefined;
 }
 
 /**
  * Main retrieve context function - auto-selects between Pinecone (with optional filter) and Bedrock
  * - knowledgeBaseId="clinic": Use Pinecone filtered to clinic sources
+ * - knowledgeBaseId={ kb: "clinic", clinicId: "..." }: Use Pinecone filtered to specific clinic
  * - knowledgeBaseId=undefined: NO KB used (user must ask clinic questions)
  * - knowledgeBaseId=other: Use AWS Bedrock
  */
 export async function retrieveContext(
   query: string,
-  knowledgeBaseId?: string,
+  knowledgeBaseId?: string | { kb: string; clinicId: string | null },
   n: number = 3,
 ): Promise<{
   context: string;
   isRagWorking: boolean;
   ragSources: RAGSource[];
 }> {
-  // Use Pinecone with clinic filter if knowledgeBaseId === "clinic"
+  // Handle new object format from detectKnowledgeBase()
+  if (
+    typeof knowledgeBaseId === "object" &&
+    knowledgeBaseId !== null &&
+    "kb" in knowledgeBaseId
+  ) {
+    if (knowledgeBaseId.kb === "clinic") {
+      const clinicLog = knowledgeBaseId.clinicId
+        ? `SPECIFIC clinic: ${knowledgeBaseId.clinicId}`
+        : "ALL clinics (generic)";
+      console.log(`🏥 Using Pinecone for Clinic RAG (${clinicLog})`);
+      return retrieveContextFromPinecone(query, n, knowledgeBaseId);
+    }
+  }
+
+  // Backward compatibility: string "clinic"
   if (knowledgeBaseId === "clinic") {
-    console.log("🏥 Using Pinecone for Clinic RAG (filtered)");
+    console.log("🏥 Using Pinecone for Clinic RAG (backward compat)");
     return retrieveContextFromPinecone(query, n, "clinic");
   }
 

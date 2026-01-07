@@ -2,7 +2,20 @@
   "permissions": {
     "allow": [
       "Bash(npm install:*)",
-      "Bash(node test-sales.js:*)"
+      "Bash(node test-sales.js:*)",
+      "Bash(if [ -f clinic_faq.md ])",
+      "Bash(then mv clinic_faq.md data/clinics/glow-clinic-faq.md)",
+      "Bash(else echo \"File already moved or doesn''t exist\")",
+      "Bash(fi)",
+      "Bash(then echo \"File still exists at old location\")",
+      "Bash(else echo \"File moved successfully\")",
+      "Bash(if [ -f data/clinics/glow-clinic-faq.md ])",
+      "Bash(then echo \"File exists at new location\")",
+      "Bash(else echo \"File missing at new location\")",
+      "Bash(npx tsx:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(npx dotenv:*)",
+      "Bash(set DATABASE_URL=postgresql://dummy)"
     ],
     "deny": [],
     "ask": []
