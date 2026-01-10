@@ -338,7 +338,7 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   </div>
 );
 
-function ChatArea() {
+function ChatArea({ clinicId }: { clinicId: string | null }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -349,6 +349,13 @@ function ChatArea() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Log clinic context for debugging
+  useEffect(() => {
+    if (clinicId) {
+      console.log(`🏥 ChatArea initialized for clinic: ${clinicId}`);
+    }
+  }, [clinicId]);
 
   // Default to empty string = Pinecone (no knowledgeBaseId)
   // Set to specific ID if you want to use AWS Bedrock instead
@@ -561,6 +568,7 @@ function ChatArea() {
           model: selectedModel,
           knowledgeBaseId: selectedKnowledgeBase,
           sessionId: currentSessionId, // Pass session ID for database persistence
+          clinicId: clinicId, // 🔑 Pass clinicId for data isolation
         }),
       });
 
@@ -609,13 +617,79 @@ function ChatArea() {
       const readyToRender = performance.now();
       logDuration("Response Processing", readyToRender - responseReceived);
 
+      // 🔧 IMPROVED: Aggressive JSON unwrapping to NEVER show raw JSON
+      const unwrapResponse = (responseData: any, depth: number = 0): string => {
+        // Prevent infinite recursion
+        if (depth > 10) {
+          console.warn('⚠️ Max unwrapping depth reached');
+          return String(responseData);
+        }
+
+        // If already a plain string, return it
+        if (typeof responseData === 'string') {
+          const trimmed = responseData.trim();
+
+          // Remove markdown code blocks if present
+          const codeBlockMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
+          if (codeBlockMatch) {
+            return unwrapResponse(codeBlockMatch[1].trim(), depth + 1);
+          }
+
+          // Try to parse if it looks like JSON
+          if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              // Recursively unwrap if it's an object
+              if (parsed && typeof parsed === 'object') {
+                return unwrapResponse(parsed, depth + 1);
+              }
+            } catch (e) {
+              // Not valid JSON, return as plain text
+              return trimmed;
+            }
+          }
+
+          return trimmed;
+        }
+
+        // If it's an object, try to extract 'response' field
+        if (responseData && typeof responseData === 'object') {
+          // Try multiple field names that might contain the text
+          const possibleFields = ['response', 'message', 'text', 'content', 'answer'];
+
+          for (const field of possibleFields) {
+            if (field in responseData && responseData[field]) {
+              // Recursively unwrap this field
+              return unwrapResponse(responseData[field], depth + 1);
+            }
+          }
+
+          // If no text field found, try to create a readable message
+          // from the object (but avoid showing raw JSON structure)
+          console.warn('⚠️ No text field found in response object:', Object.keys(responseData));
+
+          // Last resort: if there's thinking field, use that
+          if (responseData.thinking) {
+            return `Maaf, terjadi kesalahan format response. (Debug: ${responseData.thinking})`;
+          }
+
+          // Absolute last resort
+          return 'Maaf, terjadi kesalahan dalam memproses response. Silakan coba lagi.';
+        }
+
+        // Fallback for other types
+        return String(responseData || 'Empty response');
+      };
+
+      const cleanedContent = unwrapResponse(data);
+
       setMessages((prevMessages) => {
         const newMessages = [...prevMessages];
         const lastIndex = newMessages.length - 1;
         newMessages[lastIndex] = {
           id: crypto.randomUUID(),
           role: "assistant",
-          content: data.response || JSON.stringify(data), // Use response text directly, fallback to JSON if missing
+          content: cleanedContent,
         };
         return newMessages;
       });

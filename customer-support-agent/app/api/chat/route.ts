@@ -100,7 +100,17 @@ export async function POST(req: Request) {
   const measureTime = (label: string) => logTimestamp(label, apiStart);
 
   // Extract data from the request body
-  let { messages, model, knowledgeBaseId, sessionId, businessContext, customerId } = await req.json();
+  let { messages, model, knowledgeBaseId, sessionId, businessContext, customerId, clinicId } = await req.json();
+
+  // 🔑 NEW: If clinicId is provided from frontend, FORCE it for single-tenant isolation
+  // This ensures bot only responds about ONE specific clinic
+  // Example: clinicId = "glow-clinic" → Bot only knows about Glow Aesthetics
+  if (clinicId) {
+    console.log(`🏥 FORCED CLINIC CONTEXT: ${clinicId} (single-tenant mode)`);
+    // Override knowledgeBaseId to force this specific clinic
+    knowledgeBaseId = { kb: "clinic", clinicId: clinicId };
+    console.log(`🔒 Data isolation enabled - Bot restricted to ${clinicId} only`);
+  }
 
   // Set default model if not provided
   model = model || 'claude-haiku-4-5-20251001';
@@ -170,6 +180,8 @@ export async function POST(req: Request) {
   }
 
   // Auto-detect knowledge base if not specified
+  // NOTE: If clinicId was provided from frontend (line 108-113), this won't run
+  //       because knowledgeBaseId is already set (forced isolation)
   if (!knowledgeBaseId) {
     const detectedKb = detectKnowledgeBase(latestMessage);
     if (detectedKb) {
@@ -1080,6 +1092,28 @@ export async function POST(req: Request) {
       };
     }
 
+    // Additional safeguard: Ensure response field is clean text, not nested JSON
+    if (parsedResponse.response && typeof parsedResponse.response === 'string') {
+      const trimmedResponse = parsedResponse.response.trim();
+      // Check if response field contains JSON (nested JSON issue)
+      if (trimmedResponse.startsWith('{') || trimmedResponse.startsWith('[')) {
+        try {
+          const nestedParsed = JSON.parse(trimmedResponse);
+          // If nested object has a 'response' field, use that instead
+          if (nestedParsed && typeof nestedParsed === 'object' && nestedParsed.response) {
+            console.log("⚠️ Detected nested JSON in response field, unwrapping...");
+            parsedResponse.response = nestedParsed.response;
+            // Also merge other fields if present
+            if (nestedParsed.thinking) parsedResponse.thinking = nestedParsed.thinking;
+            if (nestedParsed.user_mood) parsedResponse.user_mood = nestedParsed.user_mood;
+            if (nestedParsed.suggested_questions) parsedResponse.suggested_questions = nestedParsed.suggested_questions;
+          }
+        } catch (e) {
+          // Not valid JSON, keep original - this is expected for normal text responses
+        }
+      }
+    }
+
     const validatedResponse = responseSchema.parse(parsedResponse);
 
     const responseWithId = {
@@ -1191,6 +1225,34 @@ export async function POST(req: Request) {
         // Continue anyway - don't fail the API call if database save fails
       }
     }
+
+    // 🔒 FINAL VALIDATION: Ensure response field is ALWAYS a string
+    // This prevents any JSON objects from leaking to frontend
+    if (typeof responseWithId.response !== 'string') {
+      console.error("⚠️ CRITICAL: response field is not a string!", typeof responseWithId.response);
+      // Force convert to string
+      if (responseWithId.response && typeof responseWithId.response === 'object') {
+        // If it's an object with a 'response' field, extract it
+        if ('response' in responseWithId.response) {
+          responseWithId.response = String(responseWithId.response.response);
+        } else {
+          // Otherwise, stringify but wrap in error message
+          responseWithId.response = "Maaf, terjadi kesalahan format response. Silakan coba lagi.";
+          console.error("Response object without response field:", responseWithId.response);
+        }
+      } else {
+        responseWithId.response = String(responseWithId.response);
+      }
+    }
+
+    // Log the cleaned response being sent to frontend
+    console.log("📤 Final response being sent to frontend (first 300 chars):", responseWithId.response?.substring(0, 300));
+    console.log("📊 Response metadata:", {
+      user_mood: responseWithId.user_mood,
+      suggested_questions_count: responseWithId.suggested_questions?.length,
+      redirect_to_agent: responseWithId.redirect_to_agent?.should_redirect,
+      response_type: typeof responseWithId.response, // 🔍 Log type for debugging
+    });
 
     // Prepare the response object
     const apiResponse = new Response(JSON.stringify(responseWithId), {
