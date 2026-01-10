@@ -1230,18 +1230,19 @@ export async function POST(req: Request) {
     // This prevents any JSON objects from leaking to frontend
     if (typeof responseWithId.response !== 'string') {
       console.error("⚠️ CRITICAL: response field is not a string!", typeof responseWithId.response);
-      // Force convert to string
-      if (responseWithId.response && typeof responseWithId.response === 'object') {
+      // Force convert to string - use type assertion for error handling
+      const responseValue = responseWithId.response as any;
+      if (responseValue && typeof responseValue === 'object') {
         // If it's an object with a 'response' field, extract it
-        if ('response' in responseWithId.response) {
-          responseWithId.response = String(responseWithId.response.response);
+        if ('response' in responseValue) {
+          responseWithId.response = String(responseValue.response);
         } else {
           // Otherwise, stringify but wrap in error message
           responseWithId.response = "Maaf, terjadi kesalahan format response. Silakan coba lagi.";
-          console.error("Response object without response field:", responseWithId.response);
+          console.error("Response object without response field:", responseValue);
         }
       } else {
-        responseWithId.response = String(responseWithId.response);
+        responseWithId.response = String(responseValue);
       }
     }
 

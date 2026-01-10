@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import TopNavBar from "@/components/TopNavBar";
@@ -14,7 +14,7 @@ const RightSidebar = dynamic(() => import("@/components/RightSidebar"), {
   ssr: false,
 });
 
-export default function Home() {
+function ChatWrapper() {
   const searchParams = useSearchParams();
 
   // Get clinicId from URL parameter
@@ -28,12 +28,18 @@ export default function Home() {
     console.log('⚠️  No clinicId specified - bot will respond to all clinics');
   }
 
+  return <ChatArea clinicId={clinicId} />;
+}
+
+export default function Home() {
   return (
     <div className="flex flex-col h-screen w-full">
       <TopNavBar />
       <div className="flex flex-1 overflow-hidden h-screen w-full">
         {config.includeLeftSidebar && <LeftSidebar />}
-        <ChatArea clinicId={clinicId} />
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center">Loading...</div>}>
+          <ChatWrapper />
+        </Suspense>
         {config.includeRightSidebar && <RightSidebar />}
       </div>
     </div>
