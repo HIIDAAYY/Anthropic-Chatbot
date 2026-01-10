@@ -23,6 +23,8 @@ import {
   executeToolUse,
   formatToolResults,
 } from "@/app/lib/bot-tools";
+import { responseCache } from "@/app/lib/response-cache";
+import { getSimpleResponse } from "@/app/lib/simple-responses";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -155,6 +157,82 @@ export async function POST(req: Request) {
 
   console.log("📝 Latest Query:", latestMessage);
   measureTime("User Input Received");
+
+  // 💾 CHECK CACHE: Try to get cached response first
+  const cachedResponse = responseCache.get(clinicId, latestMessage);
+  if (cachedResponse) {
+    console.log('💰 Using cached response - NO API CALL');
+
+    // Still save to DB for conversation history
+    if (sessionId) {
+      try {
+        const customerIdentifier = `web_${sessionId}`;
+        const customer = await getOrCreateCustomer(customerIdentifier);
+        let conversation = await getActiveConversation(customer.id);
+        if (!conversation) {
+          conversation = await createConversation(customer.id);
+        }
+        await addMessage(conversation.id, 'user', latestMessage);
+        await addMessage(conversation.id, 'assistant', JSON.stringify({
+          response: cachedResponse.response,
+          thinking: cachedResponse.thinking,
+        }));
+      } catch (err) {
+        console.error('DB save failed for cached response:', err);
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        id: crypto.randomUUID(),
+        ...cachedResponse,
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Cache': 'HIT',
+        }
+      }
+    );
+  }
+
+  // ⚡ PRE-FILTER: Check for simple queries (greetings, thanks, etc)
+  const simpleResponse = getSimpleResponse(latestMessage);
+  if (simpleResponse) {
+    // Still save to DB
+    if (sessionId) {
+      try {
+        const customerIdentifier = `web_${sessionId}`;
+        const customer = await getOrCreateCustomer(customerIdentifier);
+        let conversation = await getActiveConversation(customer.id);
+        if (!conversation) {
+          conversation = await createConversation(customer.id);
+        }
+        await addMessage(conversation.id, 'user', latestMessage);
+        await addMessage(conversation.id, 'assistant', JSON.stringify({
+          response: simpleResponse.response,
+          thinking: simpleResponse.thinking,
+        }));
+      } catch (err) {
+        console.error('DB save failed for simple response:', err);
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        id: crypto.randomUUID(),
+        ...simpleResponse,
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Simple-Response': 'true',
+        }
+      }
+    );
+  }
 
   // ===== SALES AUTOMATION FIX: Create conversation BEFORE tools run =====
   // Get or create conversation early so sales tools have valid conversationId
@@ -943,6 +1021,48 @@ export async function POST(req: Request) {
     }
   }
 
+  /**
+   * Determine optimal max_tokens based on query type
+   * Prevents over-generation for simple queries
+   */
+  function getMaxTokensForQuery(query: string, hasTools: boolean): number {
+    const lowerQuery = query.toLowerCase();
+    const length = query.length;
+
+    // Very short queries (likely simple questions)
+    if (length < 20) {
+      return 300; // "Berapa harga?", "Jam buka?"
+    }
+
+    // Short queries (simple questions with context)
+    if (length < 50) {
+      return 400; // "Dimana lokasi klinik?", "Apa nomor telepon?"
+    }
+
+    // Booking-related queries (need structured response)
+    if (/booking|book|jadwal|appointment|pesan|reschedule|cancel|bayar|payment/i.test(lowerQuery)) {
+      return hasTools ? 800 : 600; // More tokens if tools involved
+    }
+
+    // Service list queries (need moderate detail)
+    if (/apa saja|what services|ada apa|lihat|show me|list|daftar/i.test(lowerQuery)) {
+      return 700;
+    }
+
+    // Comparison queries (need detailed explanation)
+    if (/compare|beda|bedanya|vs|atau|which|lebih baik/i.test(lowerQuery)) {
+      return 900;
+    }
+
+    // Complex/explanation queries
+    if (length > 100 || /bagaimana|how|kenapa|why|jelaskan|explain/i.test(lowerQuery)) {
+      return 1000;
+    }
+
+    // Default for medium queries
+    return 600;
+  }
+
   try {
     console.log(`🚀 Query Processing`);
     measureTime("Claude Generation Start");
@@ -953,13 +1073,16 @@ export async function POST(req: Request) {
     }));
 
     // Initial API call with tools
+    const dynamicMaxTokens = getMaxTokensForQuery(latestMessage, true);
+    console.log(`🎯 Dynamic max_tokens: ${dynamicMaxTokens} (query length: ${latestMessage.length})`);
+
     let response = await retryWithBackoff(
       async () => {
         try {
           console.log("🤖 Calling Claude API with tools...");
           return await anthropic.messages.create({
             model: model,
-            max_tokens: 2000,
+            max_tokens: dynamicMaxTokens, // ⬅️ Dynamic based on query type
             messages: anthropicMessages,
             system: systemPrompt,
             tools: BOT_TOOLS,
@@ -1028,7 +1151,7 @@ export async function POST(req: Request) {
           try {
             return await anthropic.messages.create({
               model: model,
-              max_tokens: 2000,
+              max_tokens: 800, // ⬅️ Reduced from 2000 (tool responses usually shorter)
               messages: messagesWithTools,
               system: systemPrompt,
               tools: BOT_TOOLS,
@@ -1254,6 +1377,29 @@ export async function POST(req: Request) {
       redirect_to_agent: responseWithId.redirect_to_agent?.should_redirect,
       response_type: typeof responseWithId.response, // 🔍 Log type for debugging
     });
+
+    // 💾 CACHE RESPONSE: Store for future identical queries
+    const inputTokens = response.usage?.input_tokens || 0;
+    const outputTokens = response.usage?.output_tokens || 0;
+
+    responseCache.set(
+      clinicId,
+      latestMessage,
+      {
+        response: responseWithId.response,
+        thinking: responseWithId.thinking,
+        user_mood: responseWithId.user_mood,
+        suggested_questions: responseWithId.suggested_questions,
+        debug: responseWithId.debug,
+        matched_categories: responseWithId.matched_categories,
+        tools_used: responseWithId.tools_used,
+        redirect_to_agent: responseWithId.redirect_to_agent,
+      },
+      inputTokens,
+      outputTokens
+    );
+
+    console.log('📊 Cache stats:', responseCache.getStats());
 
     // Prepare the response object
     const apiResponse = new Response(JSON.stringify(responseWithId), {
