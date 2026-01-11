@@ -1,55 +1,163 @@
--- CreateEnum
-CREATE TYPE "AdminRole" AS ENUM ('SUPER_ADMIN', 'ADMIN', 'VIEWER');
+-- CreateEnum (with error handling for existing types)
+DO $$ BEGIN
+    CREATE TYPE "AdminRole" AS ENUM ('SUPER_ADMIN', 'ADMIN', 'VIEWER');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- CreateEnum
-CREATE TYPE "LearnedQAStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'SYNCED', 'ARCHIVED');
+DO $$ BEGIN
+    CREATE TYPE "LearnedQAStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'SYNCED', 'ARCHIVED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- CreateEnum
-CREATE TYPE "BusinessType" AS ENUM ('BEAUTY_CLINIC', 'TRAVEL_AGENCY');
+DO $$ BEGIN
+    CREATE TYPE "BusinessType" AS ENUM ('BEAUTY_CLINIC', 'TRAVEL_AGENCY');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- CreateEnum
-CREATE TYPE "ResourceType" AS ENUM ('DOCTOR', 'THERAPIST', 'ROOM', 'TOUR_GUIDE', 'VEHICLE', 'EQUIPMENT');
+DO $$ BEGIN
+    CREATE TYPE "ResourceType" AS ENUM ('DOCTOR', 'THERAPIST', 'ROOM', 'TOUR_GUIDE', 'VEHICLE', 'EQUIPMENT');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- CreateEnum
-CREATE TYPE "BookingStatus" AS ENUM ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW');
+DO $$ BEGIN
+    CREATE TYPE "BookingStatus" AS ENUM ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- CreateEnum
-CREATE TYPE "BookingPaymentStatus" AS ENUM ('PENDING', 'SETTLEMENT', 'CAPTURE', 'DENY', 'CANCEL', 'EXPIRE', 'REFUND', 'PARTIAL_REFUND');
+DO $$ BEGIN
+    CREATE TYPE "BookingPaymentStatus" AS ENUM ('PENDING', 'SETTLEMENT', 'CAPTURE', 'DENY', 'CANCEL', 'EXPIRE', 'REFUND', 'PARTIAL_REFUND');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- CreateEnum
-CREATE TYPE "MidtransPaymentType" AS ENUM ('BANK_TRANSFER', 'GOPAY', 'QRIS', 'SHOPEEPAY', 'CREDIT_CARD', 'ECHANNEL');
+DO $$ BEGIN
+    CREATE TYPE "MidtransPaymentType" AS ENUM ('BANK_TRANSFER', 'GOPAY', 'QRIS', 'SHOPEEPAY', 'CREDIT_CARD', 'ECHANNEL');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- CreateEnum
-CREATE TYPE "ReminderMethod" AS ENUM ('WHATSAPP', 'EMAIL', 'SMS');
+DO $$ BEGIN
+    CREATE TYPE "ReminderMethod" AS ENUM ('WHATSAPP', 'EMAIL', 'SMS');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- CreateEnum
-CREATE TYPE "ReminderStatus" AS ENUM ('PENDING', 'SENT', 'FAILED');
+DO $$ BEGIN
+    CREATE TYPE "ReminderStatus" AS ENUM ('PENDING', 'SENT', 'FAILED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- CreateEnum
-CREATE TYPE "SalesFunnelStage" AS ENUM ('AWARENESS', 'INTEREST', 'CONSIDERATION', 'INTENT', 'BOOKING', 'PAYMENT', 'COMPLETED');
+DO $$ BEGIN
+    CREATE TYPE "SalesFunnelStage" AS ENUM ('AWARENESS', 'INTEREST', 'CONSIDERATION', 'INTENT', 'BOOKING', 'PAYMENT', 'COMPLETED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- CreateEnum
-CREATE TYPE "PromoType" AS ENUM ('PERCENTAGE_DISCOUNT', 'FIXED_AMOUNT', 'BUNDLE_PACKAGE', 'FIRST_TIMER_SPECIAL', 'LIMITED_TIME_FLASH', 'LOYALTY_REWARD');
+DO $$ BEGIN
+    CREATE TYPE "PromoType" AS ENUM ('PERCENTAGE_DISCOUNT', 'FIXED_AMOUNT', 'BUNDLE_PACKAGE', 'FIRST_TIMER_SPECIAL', 'LIMITED_TIME_FLASH', 'LOYALTY_REWARD');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- AlterTable
-ALTER TABLE "conversation_metadata" ADD COLUMN     "conversion_probability" DOUBLE PRECISION,
-ADD COLUMN     "conversion_revenue" INTEGER,
-ADD COLUMN     "conversion_time" TIMESTAMP(3),
-ADD COLUMN     "converted_to_booking" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN     "intent_score" INTEGER DEFAULT 0,
-ADD COLUMN     "last_detected_clinic_id" TEXT,
-ADD COLUMN     "learned_at" TIMESTAMP(3),
-ADD COLUMN     "learning_eligible" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN     "linked_booking_id" TEXT,
-ADD COLUMN     "objections_faced" TEXT[] DEFAULT ARRAY[]::TEXT[],
-ADD COLUMN     "promos_offered" TEXT[] DEFAULT ARRAY[]::TEXT[],
-ADD COLUMN     "quality_score" DOUBLE PRECISION,
-ADD COLUMN     "sales_stage" TEXT,
-ADD COLUMN     "services_interested" TEXT[] DEFAULT ARRAY[]::TEXT[],
-ADD COLUMN     "upsells_shown" TEXT[] DEFAULT ARRAY[]::TEXT[];
+-- AlterTable (with error handling for existing columns)
+DO $$ BEGIN
+    ALTER TABLE "conversation_metadata" ADD COLUMN "conversion_probability" DOUBLE PRECISION;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "conversation_metadata" ADD COLUMN "conversion_revenue" INTEGER;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "conversation_metadata" ADD COLUMN "conversion_time" TIMESTAMP(3);
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "conversation_metadata" ADD COLUMN "converted_to_booking" BOOLEAN NOT NULL DEFAULT false;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "conversation_metadata" ADD COLUMN "intent_score" INTEGER DEFAULT 0;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "conversation_metadata" ADD COLUMN "last_detected_clinic_id" TEXT;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "conversation_metadata" ADD COLUMN "learned_at" TIMESTAMP(3);
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "conversation_metadata" ADD COLUMN "learning_eligible" BOOLEAN NOT NULL DEFAULT false;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "conversation_metadata" ADD COLUMN "linked_booking_id" TEXT;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "conversation_metadata" ADD COLUMN "objections_faced" TEXT[] DEFAULT ARRAY[]::TEXT[];
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "conversation_metadata" ADD COLUMN "promos_offered" TEXT[] DEFAULT ARRAY[]::TEXT[];
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "conversation_metadata" ADD COLUMN "quality_score" DOUBLE PRECISION;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "conversation_metadata" ADD COLUMN "sales_stage" TEXT;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "conversation_metadata" ADD COLUMN "services_interested" TEXT[] DEFAULT ARRAY[]::TEXT[];
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "conversation_metadata" ADD COLUMN "upsells_shown" TEXT[] DEFAULT ARRAY[]::TEXT[];
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
 
 -- CreateTable
-CREATE TABLE "AdminAuditLog" (
+CREATE TABLE IF NOT EXISTS "AdminAuditLog" (
     "id" TEXT NOT NULL,
     "adminUserId" TEXT,
     "action" TEXT NOT NULL,
@@ -64,7 +172,7 @@ CREATE TABLE "AdminAuditLog" (
 );
 
 -- CreateTable
-CREATE TABLE "AdminSession" (
+CREATE TABLE IF NOT EXISTS "AdminSession" (
     "id" TEXT NOT NULL,
     "adminUserId" TEXT NOT NULL,
     "tokenHash" TEXT NOT NULL,
@@ -77,7 +185,7 @@ CREATE TABLE "AdminSession" (
 );
 
 -- CreateTable
-CREATE TABLE "AdminUser" (
+CREATE TABLE IF NOT EXISTS "AdminUser" (
     "id" TEXT NOT NULL,
     "username" TEXT NOT NULL,
     "passwordHash" TEXT NOT NULL,
@@ -92,7 +200,7 @@ CREATE TABLE "AdminUser" (
 );
 
 -- CreateTable
-CREATE TABLE "learned_qa_pairs" (
+CREATE TABLE IF NOT EXISTS "learned_qa_pairs" (
     "id" TEXT NOT NULL,
     "conversation_id" TEXT NOT NULL,
     "source_message_ids" TEXT[],
@@ -115,7 +223,7 @@ CREATE TABLE "learned_qa_pairs" (
 );
 
 -- CreateTable
-CREATE TABLE "sales_funnel_logs" (
+CREATE TABLE IF NOT EXISTS "sales_funnel_logs" (
     "id" TEXT NOT NULL,
     "conversation_id" TEXT NOT NULL,
     "from_stage" "SalesFunnelStage" NOT NULL,
@@ -130,7 +238,7 @@ CREATE TABLE "sales_funnel_logs" (
 );
 
 -- CreateTable
-CREATE TABLE "promo_codes" (
+CREATE TABLE IF NOT EXISTS "promo_codes" (
     "id" TEXT NOT NULL,
     "code" TEXT NOT NULL,
     "type" "PromoType" NOT NULL,
@@ -150,7 +258,7 @@ CREATE TABLE "promo_codes" (
 );
 
 -- CreateTable
-CREATE TABLE "upsell_attempts" (
+CREATE TABLE IF NOT EXISTS "upsell_attempts" (
     "id" TEXT NOT NULL,
     "conversation_id" TEXT NOT NULL,
     "original_service_id" TEXT NOT NULL,
@@ -166,7 +274,7 @@ CREATE TABLE "upsell_attempts" (
 );
 
 -- CreateTable
-CREATE TABLE "businesses" (
+CREATE TABLE IF NOT EXISTS "businesses" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "type" "BusinessType" NOT NULL,
@@ -181,7 +289,7 @@ CREATE TABLE "businesses" (
 );
 
 -- CreateTable
-CREATE TABLE "business_settings" (
+CREATE TABLE IF NOT EXISTS "business_settings" (
     "id" TEXT NOT NULL,
     "business_id" TEXT NOT NULL,
     "advance_booking_days" INTEGER NOT NULL DEFAULT 30,
@@ -195,7 +303,7 @@ CREATE TABLE "business_settings" (
 );
 
 -- CreateTable
-CREATE TABLE "services" (
+CREATE TABLE IF NOT EXISTS "services" (
     "id" TEXT NOT NULL,
     "business_id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -213,7 +321,7 @@ CREATE TABLE "services" (
 );
 
 -- CreateTable
-CREATE TABLE "resources" (
+CREATE TABLE IF NOT EXISTS "resources" (
     "id" TEXT NOT NULL,
     "business_id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -228,7 +336,7 @@ CREATE TABLE "resources" (
 );
 
 -- CreateTable
-CREATE TABLE "bookings" (
+CREATE TABLE IF NOT EXISTS "bookings" (
     "id" TEXT NOT NULL,
     "booking_number" TEXT NOT NULL,
     "customer_id" TEXT NOT NULL,
@@ -258,7 +366,7 @@ CREATE TABLE "bookings" (
 );
 
 -- CreateTable
-CREATE TABLE "booking_resources" (
+CREATE TABLE IF NOT EXISTS "booking_resources" (
     "id" TEXT NOT NULL,
     "booking_id" TEXT NOT NULL,
     "resource_id" TEXT NOT NULL,
@@ -267,7 +375,7 @@ CREATE TABLE "booking_resources" (
 );
 
 -- CreateTable
-CREATE TABLE "booking_payments" (
+CREATE TABLE IF NOT EXISTS "booking_payments" (
     "id" TEXT NOT NULL,
     "booking_id" TEXT NOT NULL,
     "amount" INTEGER NOT NULL,
@@ -294,7 +402,7 @@ CREATE TABLE "booking_payments" (
 );
 
 -- CreateTable
-CREATE TABLE "blackout_dates" (
+CREATE TABLE IF NOT EXISTS "blackout_dates" (
     "id" TEXT NOT NULL,
     "business_id" TEXT NOT NULL,
     "date" TIMESTAMP(3) NOT NULL,
@@ -305,7 +413,7 @@ CREATE TABLE "blackout_dates" (
 );
 
 -- CreateTable
-CREATE TABLE "booking_reminders" (
+CREATE TABLE IF NOT EXISTS "booking_reminders" (
     "id" TEXT NOT NULL,
     "booking_id" TEXT NOT NULL,
     "scheduled_for" TIMESTAMP(3) NOT NULL,
@@ -320,235 +428,330 @@ CREATE TABLE "booking_reminders" (
 );
 
 -- CreateIndex
-CREATE INDEX "AdminAuditLog_action_idx" ON "AdminAuditLog"("action");
+CREATE INDEX IF NOT EXISTS "AdminAuditLog_action_idx" ON "AdminAuditLog"("action");
 
 -- CreateIndex
-CREATE INDEX "AdminAuditLog_adminUserId_idx" ON "AdminAuditLog"("adminUserId");
+CREATE INDEX IF NOT EXISTS "AdminAuditLog_adminUserId_idx" ON "AdminAuditLog"("adminUserId");
 
 -- CreateIndex
-CREATE INDEX "AdminAuditLog_timestamp_idx" ON "AdminAuditLog"("timestamp");
+CREATE INDEX IF NOT EXISTS "AdminAuditLog_timestamp_idx" ON "AdminAuditLog"("timestamp");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AdminSession_tokenHash_key" ON "AdminSession"("tokenHash");
+CREATE UNIQUE INDEX IF NOT EXISTS "AdminSession_tokenHash_key" ON "AdminSession"("tokenHash");
 
 -- CreateIndex
-CREATE INDEX "AdminSession_adminUserId_idx" ON "AdminSession"("adminUserId");
+CREATE INDEX IF NOT EXISTS "AdminSession_adminUserId_idx" ON "AdminSession"("adminUserId");
 
 -- CreateIndex
-CREATE INDEX "AdminSession_expiresAt_idx" ON "AdminSession"("expiresAt");
+CREATE INDEX IF NOT EXISTS "AdminSession_expiresAt_idx" ON "AdminSession"("expiresAt");
 
 -- CreateIndex
-CREATE INDEX "AdminSession_tokenHash_idx" ON "AdminSession"("tokenHash");
+CREATE INDEX IF NOT EXISTS "AdminSession_tokenHash_idx" ON "AdminSession"("tokenHash");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AdminUser_username_key" ON "AdminUser"("username");
+CREATE UNIQUE INDEX IF NOT EXISTS "AdminUser_username_key" ON "AdminUser"("username");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AdminUser_email_key" ON "AdminUser"("email");
+CREATE UNIQUE INDEX IF NOT EXISTS "AdminUser_email_key" ON "AdminUser"("email");
 
 -- CreateIndex
-CREATE INDEX "AdminUser_email_idx" ON "AdminUser"("email");
+CREATE INDEX IF NOT EXISTS "AdminUser_email_idx" ON "AdminUser"("email");
 
 -- CreateIndex
-CREATE INDEX "AdminUser_username_idx" ON "AdminUser"("username");
+CREATE INDEX IF NOT EXISTS "AdminUser_username_idx" ON "AdminUser"("username");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "learned_qa_pairs_pinecone_id_key" ON "learned_qa_pairs"("pinecone_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "learned_qa_pairs_pinecone_id_key" ON "learned_qa_pairs"("pinecone_id");
 
 -- CreateIndex
-CREATE INDEX "learned_qa_pairs_conversation_id_idx" ON "learned_qa_pairs"("conversation_id");
+CREATE INDEX IF NOT EXISTS "learned_qa_pairs_conversation_id_idx" ON "learned_qa_pairs"("conversation_id");
 
 -- CreateIndex
-CREATE INDEX "learned_qa_pairs_status_idx" ON "learned_qa_pairs"("status");
+CREATE INDEX IF NOT EXISTS "learned_qa_pairs_status_idx" ON "learned_qa_pairs"("status");
 
 -- CreateIndex
-CREATE INDEX "learned_qa_pairs_quality_score_idx" ON "learned_qa_pairs"("quality_score");
+CREATE INDEX IF NOT EXISTS "learned_qa_pairs_quality_score_idx" ON "learned_qa_pairs"("quality_score");
 
 -- CreateIndex
-CREATE INDEX "learned_qa_pairs_pinecone_id_idx" ON "learned_qa_pairs"("pinecone_id");
+CREATE INDEX IF NOT EXISTS "learned_qa_pairs_pinecone_id_idx" ON "learned_qa_pairs"("pinecone_id");
 
 -- CreateIndex
-CREATE INDEX "sales_funnel_logs_conversation_id_idx" ON "sales_funnel_logs"("conversation_id");
+CREATE INDEX IF NOT EXISTS "sales_funnel_logs_conversation_id_idx" ON "sales_funnel_logs"("conversation_id");
 
 -- CreateIndex
-CREATE INDEX "sales_funnel_logs_to_stage_idx" ON "sales_funnel_logs"("to_stage");
+CREATE INDEX IF NOT EXISTS "sales_funnel_logs_to_stage_idx" ON "sales_funnel_logs"("to_stage");
 
 -- CreateIndex
-CREATE INDEX "sales_funnel_logs_created_at_idx" ON "sales_funnel_logs"("created_at");
+CREATE INDEX IF NOT EXISTS "sales_funnel_logs_created_at_idx" ON "sales_funnel_logs"("created_at");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "promo_codes_code_key" ON "promo_codes"("code");
+CREATE UNIQUE INDEX IF NOT EXISTS "promo_codes_code_key" ON "promo_codes"("code");
 
 -- CreateIndex
-CREATE INDEX "promo_codes_code_idx" ON "promo_codes"("code");
+CREATE INDEX IF NOT EXISTS "promo_codes_code_idx" ON "promo_codes"("code");
 
 -- CreateIndex
-CREATE INDEX "promo_codes_is_active_idx" ON "promo_codes"("is_active");
+CREATE INDEX IF NOT EXISTS "promo_codes_is_active_idx" ON "promo_codes"("is_active");
 
 -- CreateIndex
-CREATE INDEX "promo_codes_valid_until_idx" ON "promo_codes"("valid_until");
+CREATE INDEX IF NOT EXISTS "promo_codes_valid_until_idx" ON "promo_codes"("valid_until");
 
 -- CreateIndex
-CREATE INDEX "promo_codes_conversation_id_idx" ON "promo_codes"("conversation_id");
+CREATE INDEX IF NOT EXISTS "promo_codes_conversation_id_idx" ON "promo_codes"("conversation_id");
 
 -- CreateIndex
-CREATE INDEX "promo_codes_customer_id_idx" ON "promo_codes"("customer_id");
+CREATE INDEX IF NOT EXISTS "promo_codes_customer_id_idx" ON "promo_codes"("customer_id");
 
 -- CreateIndex
-CREATE INDEX "upsell_attempts_conversation_id_idx" ON "upsell_attempts"("conversation_id");
+CREATE INDEX IF NOT EXISTS "upsell_attempts_conversation_id_idx" ON "upsell_attempts"("conversation_id");
 
 -- CreateIndex
-CREATE INDEX "upsell_attempts_was_accepted_idx" ON "upsell_attempts"("was_accepted");
+CREATE INDEX IF NOT EXISTS "upsell_attempts_was_accepted_idx" ON "upsell_attempts"("was_accepted");
 
 -- CreateIndex
-CREATE INDEX "upsell_attempts_shown_at_idx" ON "upsell_attempts"("shown_at");
+CREATE INDEX IF NOT EXISTS "upsell_attempts_shown_at_idx" ON "upsell_attempts"("shown_at");
 
 -- CreateIndex
-CREATE INDEX "upsell_attempts_upsell_type_idx" ON "upsell_attempts"("upsell_type");
+CREATE INDEX IF NOT EXISTS "upsell_attempts_upsell_type_idx" ON "upsell_attempts"("upsell_type");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "businesses_phone_number_key" ON "businesses"("phone_number");
+CREATE UNIQUE INDEX IF NOT EXISTS "businesses_phone_number_key" ON "businesses"("phone_number");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "business_settings_business_id_key" ON "business_settings"("business_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "business_settings_business_id_key" ON "business_settings"("business_id");
 
 -- CreateIndex
-CREATE INDEX "services_business_id_idx" ON "services"("business_id");
+CREATE INDEX IF NOT EXISTS "services_business_id_idx" ON "services"("business_id");
 
 -- CreateIndex
-CREATE INDEX "services_is_active_idx" ON "services"("is_active");
+CREATE INDEX IF NOT EXISTS "services_is_active_idx" ON "services"("is_active");
 
 -- CreateIndex
-CREATE INDEX "resources_business_id_idx" ON "resources"("business_id");
+CREATE INDEX IF NOT EXISTS "resources_business_id_idx" ON "resources"("business_id");
 
 -- CreateIndex
-CREATE INDEX "resources_type_idx" ON "resources"("type");
+CREATE INDEX IF NOT EXISTS "resources_type_idx" ON "resources"("type");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "bookings_booking_number_key" ON "bookings"("booking_number");
+CREATE UNIQUE INDEX IF NOT EXISTS "bookings_booking_number_key" ON "bookings"("booking_number");
 
 -- CreateIndex
-CREATE INDEX "bookings_customer_id_idx" ON "bookings"("customer_id");
+CREATE INDEX IF NOT EXISTS "bookings_customer_id_idx" ON "bookings"("customer_id");
 
 -- CreateIndex
-CREATE INDEX "bookings_business_id_idx" ON "bookings"("business_id");
+CREATE INDEX IF NOT EXISTS "bookings_business_id_idx" ON "bookings"("business_id");
 
 -- CreateIndex
-CREATE INDEX "bookings_booking_number_idx" ON "bookings"("booking_number");
+CREATE INDEX IF NOT EXISTS "bookings_booking_number_idx" ON "bookings"("booking_number");
 
 -- CreateIndex
-CREATE INDEX "bookings_status_idx" ON "bookings"("status");
+CREATE INDEX IF NOT EXISTS "bookings_status_idx" ON "bookings"("status");
 
 -- CreateIndex
-CREATE INDEX "bookings_booking_date_idx" ON "bookings"("booking_date");
+CREATE INDEX IF NOT EXISTS "bookings_booking_date_idx" ON "bookings"("booking_date");
 
 -- CreateIndex
-CREATE INDEX "bookings_promo_code_id_idx" ON "bookings"("promo_code_id");
+CREATE INDEX IF NOT EXISTS "bookings_promo_code_id_idx" ON "bookings"("promo_code_id");
 
 -- CreateIndex
-CREATE INDEX "bookings_source_conversation_id_idx" ON "bookings"("source_conversation_id");
+CREATE INDEX IF NOT EXISTS "bookings_source_conversation_id_idx" ON "bookings"("source_conversation_id");
 
 -- CreateIndex
-CREATE INDEX "booking_resources_booking_id_idx" ON "booking_resources"("booking_id");
+CREATE INDEX IF NOT EXISTS "booking_resources_booking_id_idx" ON "booking_resources"("booking_id");
 
 -- CreateIndex
-CREATE INDEX "booking_resources_resource_id_idx" ON "booking_resources"("resource_id");
+CREATE INDEX IF NOT EXISTS "booking_resources_resource_id_idx" ON "booking_resources"("resource_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "booking_resources_booking_id_resource_id_key" ON "booking_resources"("booking_id", "resource_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "booking_resources_booking_id_resource_id_key" ON "booking_resources"("booking_id", "resource_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "booking_payments_booking_id_key" ON "booking_payments"("booking_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "booking_payments_booking_id_key" ON "booking_payments"("booking_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "booking_payments_midtrans_order_id_key" ON "booking_payments"("midtrans_order_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "booking_payments_midtrans_order_id_key" ON "booking_payments"("midtrans_order_id");
 
 -- CreateIndex
-CREATE INDEX "booking_payments_booking_id_idx" ON "booking_payments"("booking_id");
+CREATE INDEX IF NOT EXISTS "booking_payments_booking_id_idx" ON "booking_payments"("booking_id");
 
 -- CreateIndex
-CREATE INDEX "booking_payments_status_idx" ON "booking_payments"("status");
+CREATE INDEX IF NOT EXISTS "booking_payments_status_idx" ON "booking_payments"("status");
 
 -- CreateIndex
-CREATE INDEX "booking_payments_midtrans_order_id_idx" ON "booking_payments"("midtrans_order_id");
+CREATE INDEX IF NOT EXISTS "booking_payments_midtrans_order_id_idx" ON "booking_payments"("midtrans_order_id");
 
 -- CreateIndex
-CREATE INDEX "blackout_dates_business_id_idx" ON "blackout_dates"("business_id");
+CREATE INDEX IF NOT EXISTS "blackout_dates_business_id_idx" ON "blackout_dates"("business_id");
 
 -- CreateIndex
-CREATE INDEX "blackout_dates_date_idx" ON "blackout_dates"("date");
+CREATE INDEX IF NOT EXISTS "blackout_dates_date_idx" ON "blackout_dates"("date");
 
 -- CreateIndex
-CREATE INDEX "booking_reminders_booking_id_idx" ON "booking_reminders"("booking_id");
+CREATE INDEX IF NOT EXISTS "booking_reminders_booking_id_idx" ON "booking_reminders"("booking_id");
 
 -- CreateIndex
-CREATE INDEX "booking_reminders_scheduled_for_idx" ON "booking_reminders"("scheduled_for");
+CREATE INDEX IF NOT EXISTS "booking_reminders_scheduled_for_idx" ON "booking_reminders"("scheduled_for");
 
 -- CreateIndex
-CREATE INDEX "booking_reminders_status_idx" ON "booking_reminders"("status");
+CREATE INDEX IF NOT EXISTS "booking_reminders_status_idx" ON "booking_reminders"("status");
 
 -- CreateIndex
-CREATE INDEX "conversation_metadata_learning_eligible_idx" ON "conversation_metadata"("learning_eligible");
+CREATE INDEX IF NOT EXISTS "conversation_metadata_learning_eligible_idx" ON "conversation_metadata"("learning_eligible");
 
 -- CreateIndex
-CREATE INDEX "conversation_metadata_sales_stage_idx" ON "conversation_metadata"("sales_stage");
+CREATE INDEX IF NOT EXISTS "conversation_metadata_sales_stage_idx" ON "conversation_metadata"("sales_stage");
 
 -- CreateIndex
-CREATE INDEX "conversation_metadata_converted_to_booking_idx" ON "conversation_metadata"("converted_to_booking");
+CREATE INDEX IF NOT EXISTS "conversation_metadata_converted_to_booking_idx" ON "conversation_metadata"("converted_to_booking");
 
 -- AddForeignKey
-ALTER TABLE "AdminAuditLog" ADD CONSTRAINT "AdminAuditLog_adminUserId_fkey" FOREIGN KEY ("adminUserId") REFERENCES "AdminUser"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AdminAuditLog" ADD CONSTRAINT "AdminAuditLog_adminUserId_fkey" FOREIGN KEY ("adminUserId") REFERENCES "AdminUser"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "AdminSession" ADD CONSTRAINT "AdminSession_adminUserId_fkey" FOREIGN KEY ("adminUserId") REFERENCES "AdminUser"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AdminSession" ADD CONSTRAINT "AdminSession_adminUserId_fkey" FOREIGN KEY ("adminUserId") REFERENCES "AdminUser"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "learned_qa_pairs" ADD CONSTRAINT "learned_qa_pairs_conversation_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "conversations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "learned_qa_pairs" ADD CONSTRAINT "learned_qa_pairs_conversation_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "conversations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "sales_funnel_logs" ADD CONSTRAINT "sales_funnel_logs_conversation_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "conversations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "sales_funnel_logs" ADD CONSTRAINT "sales_funnel_logs_conversation_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "conversations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "promo_codes" ADD CONSTRAINT "promo_codes_conversation_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "conversations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "promo_codes" ADD CONSTRAINT "promo_codes_conversation_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "conversations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "promo_codes" ADD CONSTRAINT "promo_codes_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "promo_codes" ADD CONSTRAINT "promo_codes_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "upsell_attempts" ADD CONSTRAINT "upsell_attempts_conversation_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "conversations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "upsell_attempts" ADD CONSTRAINT "upsell_attempts_conversation_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "conversations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "business_settings" ADD CONSTRAINT "business_settings_business_id_fkey" FOREIGN KEY ("business_id") REFERENCES "businesses"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "business_settings" ADD CONSTRAINT "business_settings_business_id_fkey" FOREIGN KEY ("business_id") REFERENCES "businesses"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "services" ADD CONSTRAINT "services_business_id_fkey" FOREIGN KEY ("business_id") REFERENCES "businesses"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "services" ADD CONSTRAINT "services_business_id_fkey" FOREIGN KEY ("business_id") REFERENCES "businesses"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "resources" ADD CONSTRAINT "resources_business_id_fkey" FOREIGN KEY ("business_id") REFERENCES "businesses"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "resources" ADD CONSTRAINT "resources_business_id_fkey" FOREIGN KEY ("business_id") REFERENCES "businesses"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "bookings" ADD CONSTRAINT "bookings_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "bookings" ADD CONSTRAINT "bookings_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "bookings" ADD CONSTRAINT "bookings_business_id_fkey" FOREIGN KEY ("business_id") REFERENCES "businesses"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "bookings" ADD CONSTRAINT "bookings_business_id_fkey" FOREIGN KEY ("business_id") REFERENCES "businesses"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "bookings" ADD CONSTRAINT "bookings_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "bookings" ADD CONSTRAINT "bookings_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "bookings" ADD CONSTRAINT "bookings_promo_code_id_fkey" FOREIGN KEY ("promo_code_id") REFERENCES "promo_codes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "bookings" ADD CONSTRAINT "bookings_promo_code_id_fkey" FOREIGN KEY ("promo_code_id") REFERENCES "promo_codes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "booking_resources" ADD CONSTRAINT "booking_resources_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "booking_resources" ADD CONSTRAINT "booking_resources_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "booking_resources" ADD CONSTRAINT "booking_resources_resource_id_fkey" FOREIGN KEY ("resource_id") REFERENCES "resources"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "booking_resources" ADD CONSTRAINT "booking_resources_resource_id_fkey" FOREIGN KEY ("resource_id") REFERENCES "resources"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "booking_payments" ADD CONSTRAINT "booking_payments_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "booking_payments" ADD CONSTRAINT "booking_payments_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "blackout_dates" ADD CONSTRAINT "blackout_dates_business_id_fkey" FOREIGN KEY ("business_id") REFERENCES "businesses"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "blackout_dates" ADD CONSTRAINT "blackout_dates_business_id_fkey" FOREIGN KEY ("business_id") REFERENCES "businesses"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 -- AddForeignKey
-ALTER TABLE "booking_reminders" ADD CONSTRAINT "booking_reminders_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "booking_reminders" ADD CONSTRAINT "booking_reminders_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
