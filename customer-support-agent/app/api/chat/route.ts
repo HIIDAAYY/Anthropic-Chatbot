@@ -1031,36 +1031,36 @@ export async function POST(req: Request) {
 
     // Very short queries (likely simple questions)
     if (length < 20) {
-      return 300; // "Berapa harga?", "Jam buka?"
+      return 600; // "Berapa harga?", "Jam buka?"
     }
 
     // Short queries (simple questions with context)
     if (length < 50) {
-      return 400; // "Dimana lokasi klinik?", "Apa nomor telepon?"
+      return 800; // "Dimana lokasi klinik?", "Apa nomor telepon?"
     }
 
     // Booking-related queries (need structured response)
     if (/booking|book|jadwal|appointment|pesan|reschedule|cancel|bayar|payment/i.test(lowerQuery)) {
-      return hasTools ? 800 : 600; // More tokens if tools involved
+      return hasTools ? 1000 : 800; // More tokens if tools involved
     }
 
     // Service list queries (need moderate detail)
     if (/apa saja|what services|ada apa|lihat|show me|list|daftar/i.test(lowerQuery)) {
-      return 700;
+      return 900;
     }
 
     // Comparison queries (need detailed explanation)
     if (/compare|beda|bedanya|vs|atau|which|lebih baik/i.test(lowerQuery)) {
-      return 900;
+      return 1200;
     }
 
     // Complex/explanation queries
     if (length > 100 || /bagaimana|how|kenapa|why|jelaskan|explain/i.test(lowerQuery)) {
-      return 1000;
+      return 1500;
     }
 
     // Default for medium queries
-    return 600;
+    return 800;
   }
 
   try {
@@ -1186,33 +1186,123 @@ export async function POST(req: Request) {
 
     console.log("📋 Raw Claude response (first 500 chars):", textContent.substring(0, 500));
 
-    // Parse the response as JSON (Claude is instructed to return JSON)
+    // ROBUST JSON EXTRACTION: Handle all cases where Claude returns JSON
+    // Case 1: Pure ```json...``` block
+    // Case 2: Plain text followed by ```json...``` block (hybrid response)
+    // Case 3: Pure JSON without code blocks
+    // Case 4: Plain text only (no JSON)
+
+    let cleanedText = textContent.trim();
     let parsedResponse;
-    try {
-      // Try to parse as JSON
-      if (textContent.trim().startsWith("{")) {
-        parsedResponse = sanitizeAndParseJSON(textContent);
-        console.log("📦 Parsed response object - response field (first 300 chars):", parsedResponse.response?.substring(0, 300));
-      } else {
-        // If not JSON, wrap response as simple text
+
+    // First, check if there's a JSON code block anywhere in the response
+    const jsonCodeBlockMatch = cleanedText.match(/```json\s*([\s\S]*?)\s*```/i);
+
+    if (jsonCodeBlockMatch) {
+      // Found a JSON code block - extract and parse it
+      const jsonContent = jsonCodeBlockMatch[1].trim();
+      console.log("🧹 Found JSON code block in response, extracting...");
+
+      try {
+        parsedResponse = sanitizeAndParseJSON(jsonContent);
+        console.log("📦 Parsed JSON from code block - response field (first 300 chars):", parsedResponse.response?.substring(0, 300));
+      } catch (e) {
+        console.error("❌ Failed to parse JSON from code block:", e);
+        // If JSON parsing fails, use text before the code block as fallback
+        const textBeforeJson = cleanedText.split(/```json/i)[0].trim();
         parsedResponse = {
-          response: textContent,
+          response: textBeforeJson || cleanedText,
+          thinking: "JSON parsing failed, using text content",
+          user_mood: "neutral" as const,
+          suggested_questions: [],
+          debug: { context_used: isRagWorking },
+        };
+      }
+    } else if (cleanedText.startsWith("```")) {
+      // Code block without "json" label - strip it
+      cleanedText = cleanedText.replace(/^```\s*/, '').replace(/\s*```\s*$/, '');
+      console.log("🧹 Stripped generic code blocks from response");
+
+      if (cleanedText.trim().startsWith("{")) {
+        try {
+          parsedResponse = sanitizeAndParseJSON(cleanedText);
+          console.log("📦 Parsed response object - response field (first 300 chars):", parsedResponse.response?.substring(0, 300));
+        } catch (e) {
+          parsedResponse = {
+            response: cleanedText,
+            thinking: "JSON parsing failed",
+            user_mood: "neutral" as const,
+            suggested_questions: [],
+            debug: { context_used: isRagWorking },
+          };
+        }
+      } else {
+        parsedResponse = {
+          response: cleanedText,
+          thinking: "Response provided by Claude",
+          user_mood: "neutral" as const,
+          suggested_questions: [],
+          debug: { context_used: isRagWorking },
+        };
+      }
+    } else if (cleanedText.startsWith("{")) {
+      // Pure JSON without code blocks
+      try {
+        parsedResponse = sanitizeAndParseJSON(cleanedText);
+        console.log("📦 Parsed pure JSON response - response field (first 300 chars):", parsedResponse.response?.substring(0, 300));
+      } catch (parseError) {
+        console.error("Error parsing JSON response:", parseError);
+        parsedResponse = {
+          response: cleanedText,
+          thinking: "JSON parsing failed",
+          user_mood: "neutral" as const,
+          suggested_questions: [],
+          debug: { context_used: isRagWorking },
+        };
+      }
+    } else {
+      // Plain text only - no JSON detected
+      // But check if there's stray JSON at the end without code blocks (edge case)
+      const jsonStartIndex = cleanedText.lastIndexOf('\n{');
+      if (jsonStartIndex > 0) {
+        const possibleJson = cleanedText.substring(jsonStartIndex + 1).trim();
+        if (possibleJson.startsWith('{') && possibleJson.endsWith('}')) {
+          try {
+            const jsonParsed = JSON.parse(possibleJson);
+            if (jsonParsed.response) {
+              console.log("🧹 Found trailing JSON object, using parsed response");
+              parsedResponse = jsonParsed;
+            } else {
+              throw new Error("No response field in trailing JSON");
+            }
+          } catch (e) {
+            // Not valid JSON, use entire text
+            parsedResponse = {
+              response: cleanedText,
+              thinking: "Response provided by Claude with tool results",
+              user_mood: "neutral" as const,
+              suggested_questions: [],
+              debug: { context_used: isRagWorking },
+            };
+          }
+        } else {
+          parsedResponse = {
+            response: cleanedText,
+            thinking: "Response provided by Claude with tool results",
+            user_mood: "neutral" as const,
+            suggested_questions: [],
+            debug: { context_used: isRagWorking },
+          };
+        }
+      } else {
+        parsedResponse = {
+          response: cleanedText,
           thinking: "Response provided by Claude with tool results",
           user_mood: "neutral" as const,
           suggested_questions: [],
           debug: { context_used: isRagWorking },
         };
       }
-    } catch (parseError) {
-      console.error("Error parsing JSON response:", parseError);
-      // Fallback: return text as response
-      parsedResponse = {
-        response: textContent,
-        thinking: "Tool execution completed",
-        user_mood: "neutral" as const,
-        suggested_questions: [],
-        debug: { context_used: isRagWorking },
-      };
     }
 
     // Additional safeguard: Ensure response field is clean text, not nested JSON
