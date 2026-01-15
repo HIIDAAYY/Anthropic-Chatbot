@@ -30,21 +30,6 @@ const CLINIC_CONFIGS = [
     name: "Klinik Glow Aesthetics",
     filePath: resolve(__dirname, "../data/clinics/glow-clinic-faq.md"),
   },
-  {
-    id: "purity-clinic",
-    name: "The Purity Aesthetic Clinic",
-    filePath: resolve(__dirname, "../data/clinics/purity-clinic-faq.md"),
-  },
-  {
-    id: "pramudia-clinic",
-    name: "Klinik Pramudia",
-    filePath: resolve(__dirname, "../data/clinics/pramudia-clinic-faq.md"),
-  },
-  {
-    id: "beauty-plus-clinic",
-    name: "Beauty+ Clinic",
-    filePath: resolve(__dirname, "../data/clinics/beauty-plus-clinic-faq.md"),
-  },
 ];
 
 interface FAQItem {

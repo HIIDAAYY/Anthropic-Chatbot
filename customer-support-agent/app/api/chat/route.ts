@@ -80,9 +80,6 @@ function sanitizeHeaderValue(value: string): string {
 function getClinicNameById(clinicId: string): string {
   const clinicMap: Record<string, string> = {
     "glow-clinic": "Klinik Glow Aesthetics",
-    "purity-clinic": "The Purity Aesthetic Clinic",
-    "pramudia-clinic": "Klinik Pramudia",
-    "beauty-plus-clinic": "Beauty+ Clinic",
   };
   return clinicMap[clinicId] || "Klinik Kecantikan & Gigi (Beauty & Dental Clinic)";
 }
@@ -335,24 +332,6 @@ export async function POST(req: Request) {
           "glow-clinic": {
             businessId: glowClinic.id, // ← Use real DB ID
             businessName: "Klinik Glow Aesthetics",
-            businessType: "BEAUTY_CLINIC",
-            settings: glowClinic.settings,
-          },
-          "purity-clinic": {
-            businessId: glowClinic.id, // ← Map to Glow's real DB ID (booking purpose)
-            businessName: "The Purity Aesthetic Clinic",
-            businessType: "BEAUTY_CLINIC",
-            settings: glowClinic.settings,
-          },
-          "pramudia-clinic": {
-            businessId: glowClinic.id, // ← Map to Glow's real DB ID (booking purpose)
-            businessName: "Klinik Pramudia",
-            businessType: "BEAUTY_CLINIC",
-            settings: glowClinic.settings,
-          },
-          "beauty-plus-clinic": {
-            businessId: glowClinic.id, // ← Map to Glow's real DB ID (booking purpose)
-            businessName: "Beauty+ Clinic",
             businessType: "BEAUTY_CLINIC",
             settings: glowClinic.settings,
           },
