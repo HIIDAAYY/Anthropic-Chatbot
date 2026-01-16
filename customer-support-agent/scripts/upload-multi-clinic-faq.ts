@@ -30,6 +30,106 @@ const CLINIC_CONFIGS = [
     name: "Klinik Glow Aesthetics",
     filePath: resolve(__dirname, "../data/clinics/glow-clinic-faq.md"),
   },
+  {
+    id: "airin-skin",
+    name: "Airin Skin Clinic",
+    filePath: resolve(__dirname, "../data/clinics/airin-skin-faq.md"),
+  },
+  {
+    id: "beautylosophy-clinic",
+    name: "The Clinic Beautylosophy",
+    filePath: resolve(__dirname, "../data/clinics/beautylosophy-clinic-faq.md"),
+  },
+  {
+    id: "beyoutiful-clinic",
+    name: "Beyoutiful Clinic",
+    filePath: resolve(__dirname, "../data/clinics/beyoutiful-clinic-faq.md"),
+  },
+  {
+    id: "b-clinic",
+    name: "B Clinic Multi Medika",
+    filePath: resolve(__dirname, "../data/clinics/b-clinic-faq.md"),
+  },
+  {
+    id: "click-house",
+    name: "Click House",
+    filePath: resolve(__dirname, "../data/clinics/click-house-faq.md"),
+  },
+  {
+    id: "derma-express",
+    name: "Derma Express",
+    filePath: resolve(__dirname, "../data/clinics/derma-express-faq.md"),
+  },
+  {
+    id: "dermies-max",
+    name: "Dermies Max",
+    filePath: resolve(__dirname, "../data/clinics/dermies-max-faq.md"),
+  },
+  {
+    id: "euroskinlab",
+    name: "Euroskinlab",
+    filePath: resolve(__dirname, "../data/clinics/euroskinlab-faq.md"),
+  },
+  {
+    id: "gloskin-aesthetic",
+    name: "Gloskin Aesthetic",
+    filePath: resolve(__dirname, "../data/clinics/gloskin-aesthetic-faq.md"),
+  },
+  {
+    id: "jakarta-aesthetic",
+    name: "Jakarta Aesthetic Clinic",
+    filePath: resolve(__dirname, "../data/clinics/jakarta-aesthetic-faq.md"),
+  },
+  {
+    id: "jasper-skincare",
+    name: "Jasper Skincare",
+    filePath: resolve(__dirname, "../data/clinics/jasper-skincare-faq.md"),
+  },
+  {
+    id: "kusuma-beauty",
+    name: "Kusuma Beauty Clinic",
+    filePath: resolve(__dirname, "../data/clinics/kusuma-beauty-faq.md"),
+  },
+  {
+    id: "maharis-clinic",
+    name: "Maharis Clinic",
+    filePath: resolve(__dirname, "../data/clinics/maharis-clinic-faq.md"),
+  },
+  {
+    id: "nmw-skincare",
+    name: "NMW Skin Care",
+    filePath: resolve(__dirname, "../data/clinics/nmw-skincare-faq.md"),
+  },
+  {
+    id: "ovela-clinic",
+    name: "Ovela Clinic",
+    filePath: resolve(__dirname, "../data/clinics/ovela-clinic-faq.md"),
+  },
+  {
+    id: "promec-clinic",
+    name: "Promec Clinic",
+    filePath: resolve(__dirname, "../data/clinics/promec-clinic-faq.md"),
+  },
+  {
+    id: "queen-plastic",
+    name: "Queen Plastic Surgery",
+    filePath: resolve(__dirname, "../data/clinics/queen-plastic-faq.md"),
+  },
+  {
+    id: "sozo-skin",
+    name: "Sozo Skin Clinic",
+    filePath: resolve(__dirname, "../data/clinics/sozo-skin-faq.md"),
+  },
+  {
+    id: "youth-beauty",
+    name: "Youth & Beauty Clinic",
+    filePath: resolve(__dirname, "../data/clinics/youth-beauty-faq.md"),
+  },
+  {
+    id: "zap-premiere",
+    name: "ZAP Premiere",
+    filePath: resolve(__dirname, "../data/clinics/zap-premiere-faq.md"),
+  },
 ];
 
 interface FAQItem {

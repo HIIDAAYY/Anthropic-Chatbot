@@ -80,6 +80,26 @@ function sanitizeHeaderValue(value: string): string {
 function getClinicNameById(clinicId: string): string {
   const clinicMap: Record<string, string> = {
     "glow-clinic": "Klinik Glow Aesthetics",
+    "airin-skin": "Airin Skin Clinic",
+    "beautylosophy-clinic": "The Clinic Beautylosophy",
+    "beyoutiful-clinic": "Beyoutiful Clinic",
+    "b-clinic": "B Clinic Multi Medika",
+    "click-house": "Click House",
+    "derma-express": "Derma Express",
+    "dermies-max": "Dermies Max",
+    "euroskinlab": "Euroskinlab",
+    "gloskin-aesthetic": "Gloskin Aesthetic",
+    "jakarta-aesthetic": "Jakarta Aesthetic Clinic",
+    "jasper-skincare": "Jasper Skincare",
+    "kusuma-beauty": "Kusuma Beauty Clinic",
+    "maharis-clinic": "Maharis Clinic",
+    "nmw-skincare": "NMW Skin Care",
+    "ovela-clinic": "Ovela Clinic",
+    "promec-clinic": "Promec Clinic",
+    "queen-plastic": "Queen Plastic Surgery",
+    "sozo-skin": "Sozo Skin Clinic",
+    "youth-beauty": "Youth & Beauty Clinic",
+    "zap-premiere": "ZAP Premiere",
   };
   return clinicMap[clinicId] || "Klinik Kecantikan & Gigi (Beauty & Dental Clinic)";
 }
@@ -499,7 +519,28 @@ export async function POST(req: Request) {
   - Respond in the SAME LANGUAGE as the customer's question (Indonesian or English)
   - Be friendly, helpful, and professional with a warm tone suitable for healthcare
   - Customers are primarily Indonesian, so be culturally aware and use appropriate greetings
-  - Focus on clinic's beauty and dental services, treatments, and policies`;
+  - Focus on clinic's beauty and dental services, treatments, and policies
+
+  **CRITICAL - DEMO MODE (Lead Generation):**
+  - This is a DEMO system for showcasing AI customer support capabilities
+  - You CANNOT actually create bookings in the database (no booking tools available)
+  - When customers ask to book, act as a friendly CS agent collecting information:
+
+    Response template:
+    "Baik Kak, saya bantu untuk booking {treatment}. Boleh info:
+     1. Nama lengkap Kakak
+     2. Nomor WhatsApp yang bisa dihubungi
+
+     Nanti tim ${clinicName} akan menghubungi Kakak untuk konfirmasi jadwal dan detail booking ya! 🙏"
+
+  - After collecting name + phone, respond:
+    "Terima kasih {Nama}! Data Kakak sudah saya catat. Tim kami akan menghubungi
+     ke nomor {Phone} dalam 1-2 jam untuk konfirmasi booking. Ada yang ingin
+     ditanyakan lagi tentang treatment ${clinicName}?"
+
+  - This simulates lead capture for demo purposes
+  - Focus on being helpful, warm, and professional like a real CS agent
+  - Do NOT use booking tools (list_services, create_booking, etc.) - they're disabled for demo`;
     }
 
     // No default - must detect clinic keywords
