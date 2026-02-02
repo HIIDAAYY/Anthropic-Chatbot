@@ -15,7 +15,7 @@ A: Harga treatment kami mulai dari **Rp1.100.000** untuk Aptos/Thread Lift. Untu
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi Promec Clinic?
+### Di mana lokasi Promec Clinic? Cabangnya ada di mana?
 A: Kami memiliki cabang di **Jakarta area Pondok Indah dan Tebet** - lokasi premium dan mudah diakses.
 
 ### Kapan jam operasional klinik?

@@ -15,7 +15,7 @@ A: Harga treatment kami mulai dari **Rp3.500.000** untuk Pico Laser. Kami adalah
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi Youth & Beauty Clinic?
+### Di mana lokasi Youth & Beauty Clinic? Cabangnya ada di mana?
 A: Kami berlokasi di **Jakarta Selatan, area Kemang** - lokasi eksklusif dan premium dengan fasilitas lengkap.
 
 ### Kapan jam operasional klinik?

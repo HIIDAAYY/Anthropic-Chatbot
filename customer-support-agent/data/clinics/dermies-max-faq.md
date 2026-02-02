@@ -15,8 +15,8 @@ A: Harga treatment kami mulai dari **Rp115.000** - super terjangkau untuk Gen Z!
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi Dermies Max?
-A: Kami berlokasi di **Jakarta, Tangerang, dan Bandung** - lokasi strategis di pusat kota dan dekat kampus!
+### Di mana lokasi Dermies Max? Cabangnya ada di mana?
+A: Dermies Max punya cabang di **Jakarta, Tangerang, dan Bandung** - lokasi strategis di pusat kota dan dekat kampus! Untuk alamat detail cabang terdekat, bisa hubungi kami ya 😊
 
 ### Kapan jam operasional klinik?
 A: Kami buka **setiap hari dari jam 09.00 - 18.00**. Untuk jadwal dokter dan promo terkini, bisa cek Instagram kami!

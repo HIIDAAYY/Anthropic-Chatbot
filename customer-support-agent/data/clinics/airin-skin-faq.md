@@ -15,7 +15,7 @@ A: Harga treatment kami mulai dari **Rp335.000** untuk Facial Peeling. Harga sud
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi Airin Skin Clinic?
+### Di mana lokasi Airin Skin Clinic? Cabangnya ada di mana?
 A: Kami memiliki cabang di **Bandung, Jakarta, dan Bekasi**. Lokasi mudah diakses dan tersebar di area strategis.
 
 ### Kapan jam operasional klinik?

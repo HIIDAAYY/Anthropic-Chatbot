@@ -83,6 +83,42 @@ export async function queryPineconeWithText(
 }
 
 /**
+ * Query Pinecone with text in a specific namespace (MULTI-TENANT SAFE)
+ * @param text - Text query to search for
+ * @param namespace - Namespace to query (e.g., "glow-clinic")
+ * @param topK - Number of results to return
+ * @param filter - Optional metadata filter (additional filtering within namespace)
+ */
+export async function queryPineconeWithTextInNamespace(
+  text: string,
+  namespace: string,
+  topK: number = 5,
+  filter?: Record<string, any>
+) {
+  try {
+    // Convert text to embedding using OpenAI
+    const embedding = await getOpenAIEmbedding(text);
+
+    // Get namespaced index
+    const index = getPineconeIndex();
+    const namespacedIndex = index.namespace(namespace);
+
+    // Query within namespace
+    const results = await namespacedIndex.query({
+      vector: embedding,
+      topK: topK,
+      includeMetadata: true,
+      ...(filter && { filter }),
+    });
+
+    return results;
+  } catch (error) {
+    console.error(`Error querying namespace ${namespace}:`, error);
+    throw error;
+  }
+}
+
+/**
  * Upsert vectors to Pinecone index
  * @param vectors - Array of vectors with id, values, and metadata
  */
@@ -137,6 +173,50 @@ export async function upsertTexts(
     return await upsertVectors(vectors);
   } catch (error) {
     console.error("Error upserting texts to Pinecone:", error);
+    throw error;
+  }
+}
+
+/**
+ * Upsert texts to a specific namespace (MULTI-TENANT SAFE)
+ * @param texts - Array of texts with id, text content, and metadata
+ * @param namespace - Namespace to upsert to (e.g., "glow-clinic")
+ */
+export async function upsertTextsToNamespace(
+  texts: Array<{
+    id: string;
+    text: string;
+    metadata?: Record<string, any>;
+  }>,
+  namespace: string
+) {
+  try {
+    // Extract text contents for batch embedding
+    const textContents = texts.map((item) => item.text);
+
+    // Generate embeddings for all texts using OpenAI
+    const embeddings = await getOpenAIEmbeddings(textContents);
+
+    // Create vectors with embeddings
+    const vectors = texts.map((item, index) => ({
+      id: item.id,
+      values: embeddings[index],
+      metadata: {
+        ...item.metadata,
+        text: item.text, // Store original text in metadata
+      },
+    }));
+
+    // Get namespaced index
+    const index = getPineconeIndex();
+    const namespacedIndex = index.namespace(namespace);
+
+    // Upsert to specific namespace
+    await namespacedIndex.upsert(vectors);
+
+    return { success: true, count: vectors.length, namespace };
+  } catch (error) {
+    console.error(`Error upserting texts to namespace ${namespace}:`, error);
     throw error;
   }
 }

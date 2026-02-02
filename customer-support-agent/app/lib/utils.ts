@@ -3,7 +3,9 @@ import {
   RetrieveCommand,
   RetrieveCommandInput,
 } from "@aws-sdk/client-bedrock-agent-runtime";
-import { queryPineconeWithText } from "@/lib/pinecone";
+import { queryPineconeWithText, queryPineconeWithTextInNamespace } from "@/lib/pinecone";
+import { ragCache } from "./rag-cache";
+import { logger } from "./logger";
 
 console.log("🔑 Have AWS AccessKey?", !!process.env.BAWS_ACCESS_KEY_ID);
 console.log("🔑 Have AWS Secret?", !!process.env.BAWS_SECRET_ACCESS_KEY);
@@ -37,14 +39,13 @@ export async function retrieveContextFromPinecone(
   ragSources: RAGSource[];
 }> {
   try {
-    console.log(
-      "🔍 Querying Pinecone with:",
-      query,
-      sourceFilter ? `(filter: ${JSON.stringify(sourceFilter)})` : "(no filter)"
-    );
+    logger.info("Querying Pinecone", {
+      query: query.slice(0, 50),
+      filter: sourceFilter ? JSON.stringify(sourceFilter) : "none"
+    });
 
-    // Build native Pinecone filter based on sourceFilter
-    let pineconeFilter: Record<string, any> | undefined;
+    // 🔒 NAMESPACE-BASED ISOLATION (Multi-tenant safe)
+    let results;
 
     // Handle new object format from detectKnowledgeBase()
     if (
@@ -52,37 +53,30 @@ export async function retrieveContextFromPinecone(
       sourceFilter !== null &&
       "kb" in sourceFilter
     ) {
-      if (sourceFilter.kb === "clinic") {
-        if (sourceFilter.clinicId) {
-          // SPECIFIC CLINIC: Compound filter (source=clinic AND clinicId=specific)
-          pineconeFilter = {
-            $and: [
-              { source: { $eq: "clinic" } },
-              { clinicId: { $eq: sourceFilter.clinicId } },
-            ],
-          };
-          console.log(
-            `🏥 Using native Pinecone filter for SPECIFIC CLINIC: ${sourceFilter.clinicId}`
-          );
-        } else {
-          // GENERIC CLINIC: All clinics (source=clinic only)
-          pineconeFilter = { source: { $eq: "clinic" } };
-          console.log("🏥 Using native Pinecone filter for ALL CLINICS");
-        }
+      if (sourceFilter.kb === "clinic" && sourceFilter.clinicId) {
+        // ✅ SPECIFIC CLINIC: Use namespace (RECOMMENDED for multi-tenancy)
+        const namespace = sourceFilter.clinicId; // e.g., "glow-clinic"
+        logger.info(`Using Pinecone NAMESPACE for clinic isolation`, { namespace });
+        results = await queryPineconeWithTextInNamespace(query, namespace, n);
+      } else {
+        // ⚠️ GENERIC CLINIC: Fallback to metadata filter (not recommended for production)
+        logger.warn("Querying ALL clinics - not using namespace isolation");
+        const pineconeFilter = { source: { $eq: "clinic" } };
+        results = await queryPineconeWithText(query, n, pineconeFilter);
       }
     } else if (sourceFilter === "clinic") {
-      // Backward compatibility: string "clinic"
-      pineconeFilter = { source: { $eq: "clinic" } };
-      console.log("🏥 Using native Pinecone filter for CLINIC (backward compat)");
+      // Backward compatibility: string "clinic" without specific ID
+      logger.warn("Querying clinic without namespace - using metadata filter");
+      const pineconeFilter = { source: { $eq: "clinic" } };
+      results = await queryPineconeWithText(query, n, pineconeFilter);
     } else if (sourceFilter) {
       // For other named sources (string)
-      pineconeFilter = { source: { $eq: sourceFilter } };
-      console.log(`📍 Using native Pinecone filter for source: ${sourceFilter}`);
+      const pineconeFilter = { source: { $eq: sourceFilter } };
+      results = await queryPineconeWithText(query, n, pineconeFilter);
+    } else {
+      // No filter - query all
+      results = await queryPineconeWithText(query, n);
     }
-    // If no sourceFilter: no filter = query all sources
-
-    // Query Pinecone with native filtering
-    const results = await queryPineconeWithText(query, n, pineconeFilter);
 
     // Parse Pinecone results with enhanced metadata
     const ragSources: RAGSource[] = results.matches
@@ -100,12 +94,10 @@ export async function retrieveContextFromPinecone(
         clinicName: match.metadata?.clinicName, // NEW: Include clinicName
       }));
 
-    console.log(
-      "✅ Pinecone returned",
-      ragSources.length,
-      "results",
-      sourceFilter ? `(filtered)` : "(all sources)"
-    );
+    logger.info("Pinecone query results", {
+      count: ragSources.length,
+      filtered: !!sourceFilter
+    });
 
     // Build context from results
     const context = ragSources.map((source) => source.snippet).join("\n\n");
@@ -116,7 +108,7 @@ export async function retrieveContextFromPinecone(
       ragSources,
     };
   } catch (error) {
-    console.error("❌ Pinecone RAG Error:", error);
+    logger.error("Pinecone RAG Error", error);
     return { context: "", isRagWorking: false, ragSources: [] };
   }
 }
@@ -444,6 +436,14 @@ export async function retrieveContext(
   isRagWorking: boolean;
   ragSources: RAGSource[];
 }> {
+  // Check cache first
+  const cached = ragCache.get(knowledgeBaseId, query);
+  if (cached) {
+    return cached;
+  }
+
+  let result: { context: string; isRagWorking: boolean; ragSources: RAGSource[] };
+
   // Handle new object format from detectKnowledgeBase()
   if (
     typeof knowledgeBaseId === "object" &&
@@ -455,14 +455,18 @@ export async function retrieveContext(
         ? `SPECIFIC clinic: ${knowledgeBaseId.clinicId}`
         : "ALL clinics (generic)";
       console.log(`🏥 Using Pinecone for Clinic RAG (${clinicLog})`);
-      return retrieveContextFromPinecone(query, n, knowledgeBaseId);
+      result = await retrieveContextFromPinecone(query, n, knowledgeBaseId);
+      ragCache.set(knowledgeBaseId, query, result);
+      return result;
     }
   }
 
   // Backward compatibility: string "clinic"
   if (knowledgeBaseId === "clinic") {
     console.log("🏥 Using Pinecone for Clinic RAG (backward compat)");
-    return retrieveContextFromPinecone(query, n, "clinic");
+    result = await retrieveContextFromPinecone(query, n, "clinic");
+    ragCache.set(knowledgeBaseId, query, result);
+    return result;
   }
 
   // NO DEFAULT KB - if no knowledgeBaseId, return empty context
@@ -473,5 +477,7 @@ export async function retrieveContext(
 
   // Use Bedrock if knowledgeBaseId is provided (for other knowledge bases)
   console.log("☁️ Using AWS Bedrock for RAG");
-  return retrieveContextFromBedrock(query, knowledgeBaseId as string, n);
+  result = await retrieveContextFromBedrock(query, knowledgeBaseId as string, n);
+  ragCache.set(knowledgeBaseId, query, result);
+  return result;
 }

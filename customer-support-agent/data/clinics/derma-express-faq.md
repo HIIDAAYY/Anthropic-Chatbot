@@ -15,7 +15,7 @@ A: Kami mengusung konsep **"Terjangkau"** - harga kompetitif untuk kualitas bagu
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi Derma Express?
+### Di mana lokasi Derma Express? Cabangnya ada di mana?
 A: Kami memiliki cabang di **Jakarta, Tangerang, dan Semarang** - lokasi strategis dan mudah dijangkau.
 
 ### Kapan jam operasional klinik?

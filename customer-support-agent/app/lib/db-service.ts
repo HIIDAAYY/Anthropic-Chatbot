@@ -4,15 +4,40 @@
  */
 
 import { PrismaClient, ConversationStatus, MessageRole, SalesFunnelStage, PromoType } from '@prisma/client';
+import { logger } from './logger';
 
 // Singleton pattern for Prisma Client
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+const prismaClient = new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+});
+
+// 🔒 TENANT ISOLATION LOGGING
+// Note: Prisma middleware ($use) requires @prisma/client ^5.0.0
+// For now, we'll use manual logging in service functions
+// TODO: Upgrade to Prisma 5+ and implement $use middleware for automatic enforcement
+
+/**
+ * Helper: Log database query for tenant models
+ * Call this in service functions to track tenant isolation
+ */
+export function logTenantQuery(model: string, action: string, hasBusinessIdFilter: boolean) {
+  logger.debug(`DB Query: ${model}.${action}`, {
+    model,
+    action,
+    hasBusinessIdFilter,
   });
+
+  if (!hasBusinessIdFilter && (action === 'findMany' || action === 'findFirst')) {
+    logger.warn(`Query without businessId filter - potential data leak`, {
+      model,
+      action,
+    });
+  }
+}
+
+export const prisma = globalForPrisma.prisma || prismaClient;
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
@@ -32,12 +57,12 @@ export async function getOrCreateCustomer(phoneNumber: string) {
       customer = await prisma.customer.create({
         data: { phoneNumber },
       });
-      console.log(`Created new customer: ${phoneNumber}`);
+      logger.info('Created new customer', { phoneNumber });
     }
 
     return customer;
   } catch (error) {
-    console.error('Error getting/creating customer:', error);
+    logger.error('Error getting/creating customer', error);
     throw error;
   }
 }
@@ -124,10 +149,37 @@ export async function addMessage(
       },
     });
 
-    console.log(`Added ${role} message to conversation: ${conversationId}`);
+    logger.info(`Added ${role} message to conversation`, { conversationId });
     return message;
   } catch (error) {
-    console.error('Error adding message:', error);
+    logger.error('Error adding message', error);
+    throw error;
+  }
+}
+
+/**
+ * Batch add multiple messages in a single transaction (performance optimization)
+ */
+export async function addMessages(
+  messages: Array<{
+    conversationId: string;
+    role: 'user' | 'assistant';
+    content: string;
+  }>
+) {
+  try {
+    const result = await prisma.message.createMany({
+      data: messages.map(msg => ({
+        conversationId: msg.conversationId,
+        role: msg.role as MessageRole,
+        content: msg.content,
+      })),
+    });
+
+    logger.info('Batch added messages', { count: result.count });
+    return result;
+  } catch (error) {
+    logger.error('Error batch adding messages', error);
     throw error;
   }
 }

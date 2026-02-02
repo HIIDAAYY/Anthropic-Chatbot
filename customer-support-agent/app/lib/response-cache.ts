@@ -4,6 +4,8 @@
  * TTL: 1 hour (configurable)
  */
 
+import { logger } from './logger';
+
 interface CacheEntry {
   response: any;
   timestamp: number;
@@ -42,16 +44,21 @@ class ResponseCache {
     if (age > this.TTL) {
       this.cache.delete(key);
       this.misses++;
-      console.log(`⏰ Cache expired for: "${query.slice(0, 50)}..." (age: ${Math.round(age / 60000)}min)`);
+      logger.debug('Cache expired', {
+        query: query.slice(0, 50),
+        ageMinutes: Math.round(age / 60000)
+      });
       return null;
     }
 
     // Cache hit!
     this.hits++;
     const hitRate = (this.hits / (this.hits + this.misses) * 100).toFixed(1);
-    console.log(`✅ Cache HIT (${hitRate}% hit rate) - Saved $${this.calculateSavings(entry)}`);
-    console.log(`   Query: "${query.slice(0, 50)}..."`);
-    console.log(`   Age: ${Math.round(age / 60000)} minutes`);
+    logger.cacheHit(query.slice(0, 50), {
+      hitRate: `${hitRate}%`,
+      savings: `$${this.calculateSavings(entry)}`,
+      ageMinutes: Math.round(age / 60000)
+    });
 
     return entry.response;
   }
@@ -73,7 +80,7 @@ class ResponseCache {
       tokensInput,
       tokensOutput,
     });
-    console.log(`💾 Cached response for: "${query.slice(0, 50)}..."`);
+    logger.debug('Cached response', { query: query.slice(0, 50) });
   }
 
   /**
@@ -108,7 +115,7 @@ class ResponseCache {
     this.cache.clear();
     this.hits = 0;
     this.misses = 0;
-    console.log('🗑️  Cache cleared');
+    logger.info('Cache cleared');
   }
 
   /**
@@ -127,7 +134,7 @@ class ResponseCache {
     });
 
     if (removedCount > 0) {
-      console.log(`🧹 Cleaned up ${removedCount} expired cache entries`);
+      logger.info('Cleaned up expired cache entries', { count: removedCount });
     }
   }
 }

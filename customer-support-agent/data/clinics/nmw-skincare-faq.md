@@ -15,7 +15,7 @@ A: Harga treatment kami mulai dari **Rp175.000** untuk Basic Treatment - sangat 
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi NMW Skin Care?
+### Di mana lokasi NMW Skin Care? Cabangnya ada di mana?
 A: Kami memiliki banyak cabang di **Jakarta, Depok, dan Bekasi** - lokasi mudah dijangkau di berbagai area.
 
 ### Kapan jam operasional klinik?

@@ -318,9 +318,25 @@ async function uploadMultiClinicFAQToPinecone(allFaqItems: FAQItem[]) {
         },
       }));
 
-      // Upsert to Pinecone
-      console.log(`   ⬆️  Upserting to Pinecone...`);
-      await index.upsert(vectors);
+      // Upsert to Pinecone with NAMESPACE isolation (multi-tenant safe)
+      console.log(`   ⬆️  Upserting to Pinecone with namespace isolation...`);
+
+      // Group vectors by clinicId for namespace-based upload
+      const vectorsByClinic = new Map<string, typeof vectors>();
+      for (const vector of vectors) {
+        const clinicId = vector.metadata.clinicId;
+        if (!vectorsByClinic.has(clinicId)) {
+          vectorsByClinic.set(clinicId, []);
+        }
+        vectorsByClinic.get(clinicId)!.push(vector);
+      }
+
+      // Upload each clinic's vectors to its own namespace
+      for (const [clinicId, clinicVectors] of vectorsByClinic.entries()) {
+        const namespacedIndex = index.namespace(clinicId); // e.g., "click-house"
+        await namespacedIndex.upsert(clinicVectors);
+        console.log(`      ✓ Uploaded ${clinicVectors.length} vectors to namespace: ${clinicId}`);
+      }
 
       console.log(`   ✅ Batch ${batchNum} uploaded successfully\n`);
 

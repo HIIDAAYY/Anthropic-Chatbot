@@ -417,6 +417,32 @@ function ChatArea({ clinicId }: { clinicId: string | null }) {
     initializeSession();
   }, []);
 
+  // Clear conversation when clinicId changes (for demo purposes)
+  useEffect(() => {
+    // Store the current clinicId in localStorage
+    const storedClinicId = localStorage.getItem("currentClinicId");
+
+    if (clinicId && storedClinicId && storedClinicId !== clinicId) {
+      // ClinicId has changed - clear conversation and start fresh
+      console.log(`🔄 Clinic changed from ${storedClinicId} to ${clinicId} - clearing conversation`);
+
+      // Clear messages
+      setMessages([]);
+
+      // Generate new session ID
+      const newSessionId = crypto.randomUUID();
+      localStorage.setItem("chatSessionId", newSessionId);
+      setSessionId(newSessionId);
+
+      console.log("🆕 Started new session:", newSessionId);
+    }
+
+    // Update stored clinicId
+    if (clinicId) {
+      localStorage.setItem("currentClinicId", clinicId);
+    }
+  }, [clinicId]);
+
   useEffect(() => {
     console.log("🔍 Messages changed! Count:", messages.length);
 

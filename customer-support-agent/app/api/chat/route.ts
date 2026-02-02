@@ -11,10 +11,12 @@ import {
   getEmergencyResponse,
 } from "@/app/lib/error-handler";
 import {
+  prisma,
   getOrCreateCustomer,
   getActiveConversation,
   createConversation,
   addMessage,
+  addMessages,
   updateConversationMetadata,
 } from "@/app/lib/db-service";
 import {
@@ -25,6 +27,7 @@ import {
 } from "@/app/lib/bot-tools";
 import { responseCache } from "@/app/lib/response-cache";
 import { getSimpleResponse } from "@/app/lib/simple-responses";
+import { logger } from "@/app/lib/logger";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -42,17 +45,46 @@ const debugMessage = (msg: string, data: any = {}) => {
 
 // Define the schema for the AI response using Zod
 // This ensures type safety and validation for the AI's output
+// Valid user mood values
+const VALID_USER_MOODS = [
+  "positive",
+  "neutral",
+  "negative",
+  "curious",
+  "frustrated",
+  "confused",
+  "concerned",
+  "interested",
+  "worried",
+  "angry",
+  "happy",
+  "considering",
+] as const;
+
 const responseSchema = z.object({
   response: z.string(),
   thinking: z.string(),
-  user_mood: z.enum([
-    "positive",
-    "neutral",
-    "negative",
-    "curious",
-    "frustrated",
-    "confused",
-  ]),
+  user_mood: z.string().transform((val) => {
+    // Check if the mood is in our valid list
+    if (VALID_USER_MOODS.includes(val as any)) {
+      return val as (typeof VALID_USER_MOODS)[number];
+    }
+    // Map common unknown moods to valid ones
+    const moodMapping: Record<string, (typeof VALID_USER_MOODS)[number]> = {
+      "sad": "negative",
+      "upset": "negative",
+      "annoyed": "frustrated",
+      "excited": "positive",
+      "enthusiastic": "positive",
+      "skeptical": "curious",
+      "uncertain": "confused",
+      "anxious": "worried",
+      "disappointed": "negative",
+      "hopeful": "positive",
+      "impatient": "frustrated",
+    };
+    return moodMapping[val.toLowerCase()] || "neutral";
+  }),
   suggested_questions: z.array(z.string()),
   debug: z.object({
     context_used: z.boolean(),
@@ -121,22 +153,26 @@ export async function POST(req: Request) {
   // Extract data from the request body
   let { messages, model, knowledgeBaseId, sessionId, businessContext, customerId, clinicId } = await req.json();
 
-  // 🔑 NEW: If clinicId is provided from frontend, FORCE it for single-tenant isolation
-  // This ensures bot only responds about ONE specific clinic
+  // 🔑 CLINIC CONTEXT: Use provided clinicId or default to "glow-clinic"
+  // This ensures bot always has a clinic context for booking operations
   // Example: clinicId = "glow-clinic" → Bot only knows about Glow Aesthetics
-  if (clinicId) {
-    console.log(`🏥 FORCED CLINIC CONTEXT: ${clinicId} (single-tenant mode)`);
-    // Override knowledgeBaseId to force this specific clinic
-    knowledgeBaseId = { kb: "clinic", clinicId: clinicId };
-    console.log(`🔒 Data isolation enabled - Bot restricted to ${clinicId} only`);
+  if (!clinicId) {
+    // Default to glow-clinic when no clinicId is specified
+    clinicId = "glow-clinic";
+    console.log(`🏥 No clinicId specified - defaulting to: ${clinicId}`);
   }
+
+  console.log(`🏥 CLINIC CONTEXT: ${clinicId} (single-tenant mode)`);
+  // Override knowledgeBaseId to force this specific clinic
+  knowledgeBaseId = { kb: "clinic", clinicId: clinicId };
+  console.log(`🔒 Data isolation enabled - Bot restricted to ${clinicId} only`);
 
   // Set default model if not provided
   model = model || 'claude-haiku-4-5-20251001';
 
   // Validate messages array
   if (!messages || messages.length === 0) {
-    console.error("❌ No messages provided in request");
+    logger.error("No messages provided in request");
     return new Response(
       JSON.stringify({
         response: "Maaf, tidak ada pesan yang diterima.",
@@ -153,7 +189,7 @@ export async function POST(req: Request) {
   const latestMessage = messages[messages.length - 1]?.content || '';
 
   if (!latestMessage) {
-    console.error("❌ Latest message has no content");
+    logger.error("Latest message has no content");
     return new Response(
       JSON.stringify({
         response: "Maaf, pesan Anda tidak dapat dibaca.",
@@ -169,7 +205,7 @@ export async function POST(req: Request) {
 
   // Validate sessionId for database persistence
   if (!sessionId) {
-    console.warn("⚠️ No sessionId provided - messages will not be persisted");
+    logger.warn("No sessionId provided - messages will not be persisted");
   }
 
   console.log("📝 Latest Query:", latestMessage);
@@ -189,13 +225,17 @@ export async function POST(req: Request) {
         if (!conversation) {
           conversation = await createConversation(customer.id);
         }
-        await addMessage(conversation.id, 'user', latestMessage);
-        await addMessage(conversation.id, 'assistant', JSON.stringify({
-          response: cachedResponse.response,
-          thinking: cachedResponse.thinking,
-        }));
+        await addMessages([
+          { conversationId: conversation.id, role: 'user', content: latestMessage },
+          {
+            conversationId: conversation.id, role: 'assistant', content: JSON.stringify({
+              response: cachedResponse.response,
+              thinking: cachedResponse.thinking,
+            })
+          },
+        ]);
       } catch (err) {
-        console.error('DB save failed for cached response:', err);
+        logger.error('DB save failed for cached response', err);
       }
     }
 
@@ -226,13 +266,17 @@ export async function POST(req: Request) {
         if (!conversation) {
           conversation = await createConversation(customer.id);
         }
-        await addMessage(conversation.id, 'user', latestMessage);
-        await addMessage(conversation.id, 'assistant', JSON.stringify({
-          response: simpleResponse.response,
-          thinking: simpleResponse.thinking,
-        }));
+        await addMessages([
+          { conversationId: conversation.id, role: 'user', content: latestMessage },
+          {
+            conversationId: conversation.id, role: 'assistant', content: JSON.stringify({
+              response: simpleResponse.response,
+              thinking: simpleResponse.thinking,
+            })
+          },
+        ]);
       } catch (err) {
-        console.error('DB save failed for simple response:', err);
+        logger.error('DB save failed for simple response', err);
       }
     }
 
@@ -328,9 +372,6 @@ export async function POST(req: Request) {
   if (!businessContext && isClinicKb) {
     try {
       // First: Get actual Glow clinic from database (will be used for all demo clinics' bookings)
-      const { PrismaClient } = await import("@prisma/client");
-      const prisma = new PrismaClient();
-
       const glowClinic = await prisma.business.findFirst({
         where: { type: "BEAUTY_CLINIC" },
         include: { settings: true },
@@ -347,11 +388,132 @@ export async function POST(req: Request) {
       }
 
       // If specific clinic detected, create business context with REAL database ID for bookings
+      // All demo clinics map to the same Glow Clinic database record for actual booking operations
       if (specificClinicId && glowClinic) {
         const clinicBusinessMap: Record<string, any> = {
           "glow-clinic": {
-            businessId: glowClinic.id, // ← Use real DB ID
+            businessId: glowClinic.id,
             businessName: "Klinik Glow Aesthetics",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "airin-skin": {
+            businessId: glowClinic.id,
+            businessName: "Airin Skin Clinic",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "beautylosophy-clinic": {
+            businessId: glowClinic.id,
+            businessName: "The Clinic Beautylosophy",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "beyoutiful-clinic": {
+            businessId: glowClinic.id,
+            businessName: "Beyoutiful Clinic",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "b-clinic": {
+            businessId: glowClinic.id,
+            businessName: "B Clinic Multi Medika",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "click-house": {
+            businessId: glowClinic.id,
+            businessName: "Click House",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "derma-express": {
+            businessId: glowClinic.id,
+            businessName: "Derma Express",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "dermies-max": {
+            businessId: glowClinic.id,
+            businessName: "Dermies Max",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "euroskinlab": {
+            businessId: glowClinic.id,
+            businessName: "Euroskinlab",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "gloskin-aesthetic": {
+            businessId: glowClinic.id,
+            businessName: "Gloskin Aesthetic",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "jakarta-aesthetic": {
+            businessId: glowClinic.id,
+            businessName: "Jakarta Aesthetic Clinic",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "jasper-skincare": {
+            businessId: glowClinic.id,
+            businessName: "Jasper Skincare",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "kusuma-beauty": {
+            businessId: glowClinic.id,
+            businessName: "Kusuma Beauty Clinic",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "maharis-clinic": {
+            businessId: glowClinic.id,
+            businessName: "Maharis Clinic",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "nmw-skincare": {
+            businessId: glowClinic.id,
+            businessName: "NMW Skin Care",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "ovela-clinic": {
+            businessId: glowClinic.id,
+            businessName: "Ovela Clinic",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "promec-clinic": {
+            businessId: glowClinic.id,
+            businessName: "Promec Clinic",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "queen-plastic": {
+            businessId: glowClinic.id,
+            businessName: "Queen Plastic Surgery",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "sozo-skin": {
+            businessId: glowClinic.id,
+            businessName: "Sozo Skin Clinic",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "youth-beauty": {
+            businessId: glowClinic.id,
+            businessName: "Youth & Beauty Clinic",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "zap-premiere": {
+            businessId: glowClinic.id,
+            businessName: "ZAP Premiere",
             businessType: "BEAUTY_CLINIC",
             settings: glowClinic.settings,
           },
@@ -376,9 +538,32 @@ export async function POST(req: Request) {
         console.log(`🏥 Auto-detected business for web: ${glowClinic.name} (database - fallback)`);
       }
 
+      // CRITICAL FALLBACK: If still no businessContext but we have clinicId, create minimal context
+      // This ensures the service list hardcoded in system prompt is always available
+      if (!businessContext && clinicId) {
+        console.warn(`⚠️ No database business found, using hardcoded fallback for ${clinicId}`);
+        businessContext = {
+          businessId: "demo-clinic-id", // Fallback ID for demo
+          businessName: getClinicNameById(clinicId),
+          businessType: "BEAUTY_CLINIC",
+          settings: null,
+        };
+        console.log(`🏥 Using hardcoded fallback businessContext for: ${businessContext.businessName}`);
+      }
+
       await prisma.$disconnect();
     } catch (error) {
       console.error("Error auto-detecting business:", error);
+      // Even on error, set fallback businessContext so service list is included in prompt
+      if (!businessContext && clinicId) {
+        businessContext = {
+          businessId: "demo-clinic-id",
+          businessName: getClinicNameById(clinicId),
+          businessType: "BEAUTY_CLINIC",
+          settings: null,
+        };
+        console.log(`🏥 Using error-fallback businessContext for: ${businessContext.businessName}`);
+      }
     }
   }
 
@@ -557,10 +742,86 @@ export async function POST(req: Request) {
   - Focus on helping customers book services, check availability, and manage their bookings`;
   };
 
+  // Generate current date info for the bot
+  const now = new Date();
+  const jakartaTime = new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(now);
+
+  // Get tomorrow's date for "besok" interpretation
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowFormatted = new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(tomorrow);
+
+  // Get ISO date for booking tools
+  const todayISO = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+
+  const tomorrowISO = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(tomorrow);
+
   const systemPrompt = `${getSystemPromptIntro()}
 
+  **📅 CURRENT DATE & TIME (CRITICAL - USE THIS FOR ALL DATE CALCULATIONS):**
+  - Hari ini: ${jakartaTime} (Waktu Jakarta/WIB)
+  - Tanggal hari ini (ISO format): ${todayISO}
+  - Besok: ${tomorrowFormatted}
+  - Tanggal besok (ISO format): ${tomorrowISO}
+
+  **IMPORTANT DATE RULES:**
+  - When customer says "besok" → Use date: ${tomorrowISO}
+  - When customer says "hari ini" → Use date: ${todayISO}
+  - When customer says "lusa" → Add 2 days to today
+  - Always convert relative dates (besok, lusa, minggu depan) to actual dates
+  - For booking tools, always use ISO format: YYYY-MM-DD
+
+  ═══════════════════════════════════════════════════════════════════════════
+  🌐 CRITICAL: LANGUAGE MATCHING RULE (HIGHEST PRIORITY) 🌐
+  ═══════════════════════════════════════════════════════════════════════════
+
+  You MUST respond in the SAME LANGUAGE the customer uses:
+  - Customer writes in **English** → You MUST reply in **English**
+  - Customer writes in **Indonesian** → You MUST reply in **Indonesian**
+  - Customer writes in **mixed** → Follow the dominant language
+
+  This applies to EVERYTHING: greetings, service names, prices, booking flow, upsell, etc.
+  Even if the knowledge base content is in Indonesian, you MUST translate your answer to match the customer's language.
+
+  Examples:
+  - "What is the price?" → Reply in English: "Hi! Acne Solution facial is Rp 400,000..."
+  - "Berapa harganya?" → Reply in Indonesian: "Hai! Facial Acne Solution Rp 400rb..."
+  - "I want to book" → Reply in English: "Sure! I need a few details for your booking..."
+  - "Mau booking" → Reply in Indonesian: "Siap! Untuk booking, aku butuh beberapa info..."
+
+  ❌ WRONG: Customer asks in English, you reply in Indonesian
+  ❌ WRONG: Customer asks in Indonesian, you reply in English
+  ✅ CORRECT: Always match the customer's language
+
+  ═══════════════════════════════════════════════════════════════════════════
+
   **Knowledge Base Context:**
-  To help you answer the customer's question, we have retrieved the following information from our knowledge base. Use this information to provide accurate answers:
+  To help you answer the customer's question, we have retrieved the following information from our knowledge base. Use this information to provide accurate answers.
+  NOTE: The knowledge base may be in Indonesian. If the customer writes in English, you MUST translate the information to English in your response.
   ${isRagWorking ? `${retrievedContext}` : "No relevant information found in our knowledge base for this query."}
 
   **Response Rules:**
@@ -641,10 +902,10 @@ export async function POST(req: Request) {
      - Max 5-6 lines at a time
   
   **Tone Guidelines:**
-  - Use "Hai/Halo" or "Hi" for warmth
+  - Indonesian responses: Use "Hai/Halo", friendly words like "aku", "kamu", "yuk", "siap!"
+  - English responses: Use "Hi/Hey", friendly words like "sure", "great", "happy to help"
   - Emojis: 1-2 per response (😊 💎 ✨ 💡) - don't overuse
-  - Friendly words: "aku", "kamu", "yuk", "siap!"
-  - End with engaging question or CTA
+  - End with engaging question or CTA (in the customer's language)
   - Keep sentences short and conversational
   
   **Formatting for Mobile Readability:**
@@ -658,12 +919,15 @@ export async function POST(req: Request) {
   ❌ Long paragraphs explaining policies
   ❌ Listing all 15 services without asking first
   ❌ Multiple sentences when one is enough
-  
+  ❌ Replying in Indonesian when the customer writes in English (or vice versa)
+
   **What TO do:**
-  ✅ "Botox di Glow Rp 2,5jt untuk area forehead. Mau cek slot tersedia? 😊"
+  ✅ Indonesian: "Botox di Glow Rp 2,5jt untuk area forehead. Mau cek slot tersedia? 😊"
+  ✅ English: "Botox at Glow is Rp 2.5M for the forehead area. Want to check available slots? 😊"
   ✅ Direct answer first, then offer details
   ✅ Short sentences, active voice
   ✅ Warm but efficient
+  ✅ ALWAYS match the customer's language
 
   **Available Tools:**
   You have access to tools for real-time information. When needed:
@@ -679,6 +943,7 @@ export async function POST(req: Request) {
   - Asking questions one by one: "Kapan Anda ingin datang?"
   - Saying "Mari saya tanyakan beberapa detail" without listing questions
   - Asking for date first, then other details later
+  - Calling create_booking BEFORE all information is collected and confirmed
 
   ✅ CORRECT (You MUST do this):
   You MUST ask for ALL booking details in ONE response using this EXACT format:
@@ -689,11 +954,57 @@ export async function POST(req: Request) {
   2️⃣ **Jam** - Jam berapa yang diinginkan? (contoh: 14:00 atau 2 siang)
   3️⃣ **Nama Lengkap** - Siapa nama Anda?
   4️⃣ **Nomor Telepon** - Nomor HP yang bisa dihubungi?
-  5️⃣ **Email** (opsional) - Alamat email Anda?
+  5️⃣ **Email** (opsional) - Alamat email Anda? (boleh skip)
 
   Mohon berikan semua informasi di atas ya! 😊"
 
   THIS IS NOT OPTIONAL. LIST ALL 5 QUESTIONS WITH EMOJIS (1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣) EVERY TIME!
+
+  ═══════════════════════════════════════════════════════════════════════════
+  🚨 BOOKING CREATION FLOW - STRICT ORDER (MUST FOLLOW) 🚨
+  ═══════════════════════════════════════════════════════════════════════════
+
+  You MUST follow this EXACT sequence. DO NOT skip steps!
+
+  **STEP 1: COLLECT ALL INFORMATION**
+  - Ask for: Treatment, Date, Time, Name, Phone, Email (optional)
+  - If customer provides partial info (e.g., "booking facial jam 10"), ask for the REMAINING info only
+  - If customer says "skip" for email, that's fine - move to Step 2
+
+  **STEP 2: SHOW SUMMARY & ASK FOR CONFIRMATION**
+  - Once you have ALL required info (treatment, date, time, name, phone), show a summary:
+    "📋 Ringkasan booking kamu:
+    • Treatment: [treatment name] (Rp [price])
+    • Tanggal: [date]
+    • Jam: [time] WIB
+    • Nama: [name]
+    • HP: [phone]
+    • Email: [email or '-']
+
+    Sudah benar semua? 😊"
+  - WAIT for customer to confirm before proceeding
+
+  **STEP 3: CREATE BOOKING (ONLY AFTER CONFIRMATION)**
+  - ONLY call create_booking AFTER customer confirms the summary (says "ya", "benar", "ok", "sudah", "betul", "oke", etc.)
+  - ❌ NEVER call create_booking before showing the summary
+  - ❌ NEVER call create_booking while still asking for information
+  - ❌ NEVER call create_booking if customer hasn't confirmed
+
+  **STEP 4: OFFER PAYMENT LINK IMMEDIATELY**
+  - After booking is successfully created, IMMEDIATELY ask about payment method:
+    "Booking berhasil! 🎉 Nomor booking: [number]
+
+    Mau bayar sekarang? Pilih metode:
+    1️⃣ GoPay
+    2️⃣ QRIS
+    3️⃣ OVO
+    4️⃣ ShopeePay
+    5️⃣ Transfer Bank (BCA/BNI/BRI/Mandiri/Permata)"
+
+  **STEP 5: CREATE PAYMENT LINK**
+  - When customer selects payment method, IMMEDIATELY call create_payment_link
+  - Show the payment URL to customer
+  - If payment link creation fails, inform customer and offer alternatives (bayar di tempat, transfer manual)
 
   ═══════════════════════════════════════════════════════════════════════════
 
@@ -827,6 +1138,59 @@ export async function POST(req: Request) {
   If the question is completely unrelated to booking services (beauty clinics, dental clinics, travel agencies, tours), politely redirect the user to a human agent.
 
   You are the first point of contact for the user and should try to resolve their issue or provide relevant information. If you are unable to help the user or if the user explicitly asks to talk to a human, you can redirect them to a human agent for further assistance.
+
+  ═══════════════════════════════════════════════════════════════════════════
+  🚨 CRITICAL: HANDOFF TO HUMAN AGENT RULES (MANDATORY) 🚨
+  ═══════════════════════════════════════════════════════════════════════════
+
+  You MUST set "redirect_to_agent": { "should_redirect": true, "reason": "..." } for these cases:
+
+  **ALWAYS REDIRECT (should_redirect = true):**
+
+  1️⃣ **COMPLAINTS / KELUHAN:**
+     - Customer complains about treatment results (iritasi, jerawat tambah parah, alergi, bengkak, dll)
+     - Customer unhappy with service quality
+     - Customer reports side effects or adverse reactions
+     - Keywords: "komplain", "complaint", "iritasi", "jerawat tambah parah", "alergi", "bengkak", "kecewa", "tidak puas", "disappointed", "rugi", "masalah"
+     - Reason: "Customer complaint - requires human agent attention"
+
+  2️⃣ **REFUND REQUESTS:**
+     - Customer asks for money back / refund
+     - Customer disputes a charge
+     - Keywords: "refund", "kembalikan uang", "minta uang kembali", "dispute", "chargeback"
+     - Reason: "Refund request - requires human agent authorization"
+
+  3️⃣ **MEDICAL EMERGENCIES / SERIOUS SIDE EFFECTS:**
+     - Customer reports severe reactions (luka, infeksi, pendarahan, demam setelah treatment)
+     - Any mention of needing medical attention after treatment
+     - Keywords: "darurat", "emergency", "infeksi", "pendarahan", "demam", "severe", "hospital"
+     - Reason: "Medical concern - requires immediate professional attention"
+
+  4️⃣ **EXPLICIT HUMAN AGENT REQUEST:**
+     - Customer directly asks to speak to a human / manager / supervisor
+     - Keywords: "bicara dengan orang", "human agent", "manager", "supervisor", "customer service"
+     - Reason: "Customer requested human agent"
+
+  5️⃣ **LEGAL / PRIVACY CONCERNS:**
+     - Customer threatens legal action
+     - Customer requests data deletion
+     - Keywords: "lawyer", "pengacara", "hukum", "legal", "hapus data", "privacy"
+     - Reason: "Legal/privacy concern - requires human agent"
+
+  **HOW TO RESPOND WHEN REDIRECTING:**
+  - Be empathetic and acknowledge their concern FIRST
+  - Then inform them that a human agent will assist
+  - Include contact info for immediate help
+  - Set redirect_to_agent.should_redirect = true with clear reason
+
+  **Example redirect responses:**
+  - Complaint: "Maaf banget dengar itu kak 😔 Keluhan seperti ini perlu ditangani langsung oleh tim medis kami. Saya akan sambungkan Kakak ke tim customer service kami yang bisa bantu lebih lanjut. Sementara itu, hubungi WhatsApp kami di +62 812-8888-5555 untuk respon lebih cepat ya."
+  - Refund: "Saya mengerti kak. Untuk proses refund, tim customer service kami yang akan bantu. Saya sambungkan ke tim kami ya. Kakak juga bisa langsung hubungi +62 812-8888-5555."
+  - Medical: "Ini penting! 🚨 Untuk keluhan medis seperti ini, segera hubungi dokter kami di +62 811-9999-5555 (emergency hotline). Saya juga akan sambungkan Kakak ke tim medis kami."
+
+  **IMPORTANT:** When in doubt about whether to redirect, ALWAYS redirect. It's better to redirect unnecessarily than to let a serious issue go unhandled by a human.
+
+  ═══════════════════════════════════════════════════════════════════════════
   
   **CRITICAL: Response Format**
   You must return ONLY a raw JSON object. Do NOT wrap it in markdown code blocks or backticks.
@@ -835,7 +1199,7 @@ export async function POST(req: Request) {
   {
       "thinking": "Brief explanation of your reasoning for how you should address the user's query",
       "response": "Your response to the user (may include tool results or regular answer)",
-      "user_mood": "positive|neutral|negative|curious|frustrated|confused",
+      "user_mood": "positive|neutral|negative|curious|frustrated|confused|concerned|interested|worried|angry|happy|considering",
       "suggested_questions": ["Question 1?", "Question 2?", "Question 3?"],
       "debug": {
         "context_used": true|false
@@ -850,11 +1214,13 @@ export async function POST(req: Request) {
 
   DO NOT use triple-backticks with "json" or any markdown code block formatting. Return ONLY the raw JSON object.
 
-  Here are a few examples of how your response should look like (following CONCISE BUT WARM style):
+  Here are a few examples of how your response should look like (following CONCISE BUT WARM style).
+  IMPORTANT: Notice how the response language MATCHES the customer's language in each example!
 
-  Example 1 - Simple price question (CONCISE & WARM):
+  Example 1 - Simple price question IN INDONESIAN (CONCISE & WARM):
+  Customer: "Berapa harga facial?"
   {
-    "thinking": "Simple price inquiry about facial - be direct but friendly",
+    "thinking": "Simple price inquiry about facial in Indonesian - be direct but friendly, reply in Indonesian",
     "response": "Hai! Facial di Glow ada beberapa pilihan:\n\n• Basic Glow - Rp 250k - Cocok untuk perawatan rutin\n• Premium Hydrating - Rp 450k - Kulit kering & dehidrasi\n• Acne Solution - Rp 400k - Jerawat & bekas jerawat\n\nMau booking yang mana? 😊",
     "user_mood": "curious",
     "suggested_questions": ["Booking kapan tersedia?", "Ada promo?"],
@@ -867,9 +1233,26 @@ export async function POST(req: Request) {
     }
   }
 
-  Example 2 - Booking request (DIRECT):
+  Example 2 - Simple price question IN ENGLISH (CONCISE & WARM):
+  Customer: "What's the price for facial?"
   {
-    "thinking": "Customer wants to book HIFU, ask for details directly with warm tone",
+    "thinking": "Simple price inquiry about facial in English - reply in English, translate service info",
+    "response": "Hi! Here are the facial options at Glow:\n\n• Basic Glow - Rp 250k - Great for routine skincare\n• Premium Hydrating - Rp 450k - Deep hydration for dry skin\n• Acne Solution - Rp 400k - Targeted acne treatment\n\nWhich one would you like to book? 😊",
+    "user_mood": "curious",
+    "suggested_questions": ["When is the next available slot?", "Any ongoing promos?"],
+    "debug": {
+      "context_used": true
+    },
+    "matched_categories": ["pricing", "services"],
+    "redirect_to_agent": {
+      "should_redirect": false
+    }
+  }
+
+  Example 3 - Booking request IN INDONESIAN (DIRECT):
+  Customer: "Mau booking HIFU"
+  {
+    "thinking": "Customer wants to book HIFU in Indonesian, ask for details directly with warm tone",
     "response": "Siap! 😊 Untuk booking HIFU, aku butuh:\n\n1️⃣ Tanggal & jam yang diinginkan\n2️⃣ Nama lengkap kamu\n3️⃣ Nomor HP yang bisa dihubungi\n\nBerapa tanggal maunya?",
     "user_mood": "positive",
     "suggested_questions": [],
@@ -883,7 +1266,24 @@ export async function POST(req: Request) {
     }
   }
 
-  Example 3 - Service list from tool (WITH SHORT DESCRIPTIONS):
+  Example 4 - Booking request IN ENGLISH (DIRECT):
+  Customer: "I want to book HIFU"
+  {
+    "thinking": "Customer wants to book HIFU in English, ask for details in English",
+    "response": "Sure! 😊 To book HIFU, I'll need:\n\n1️⃣ Preferred date & time\n2️⃣ Your full name\n3️⃣ Phone number\n\nWhat date works best for you?",
+    "user_mood": "positive",
+    "suggested_questions": [],
+    "debug": {
+      "context_used": false
+    },
+    "matched_categories": ["booking"],
+    "tools_used": [],
+    "redirect_to_agent": {
+      "should_redirect": false
+    }
+  }
+
+  Example 5 - Service list from tool (WITH SHORT DESCRIPTIONS):
   {
     "thinking": "Called list_services, present cleanly with short descriptions per user preference",
     "response": "Hi! Treatment laser di Purity:\n\n💎 **Advanced:**\n• Laser CO2 Fractional - Rp 1,2jt - Atasi acne scar & wrinkles dalam\n• IPL Photofacial - Rp 900k - Cerahkan & ratakan tone kulit\n\n⚡ **Premium:**\n• Laser Toning - Rp 800k - Refresh & brightening wajah\n• Microneedling RF - Rp 1jt - Kencangkan & perbaiki tekstur\n\nMau cek slot tersedia? 😊",
@@ -899,7 +1299,7 @@ export async function POST(req: Request) {
     }
   }
 
-  Example 4 - Question with upsell (ONE LINE, NATURAL):
+  Example 6 - Question with upsell (ONE LINE, NATURAL):
   {
     "thinking": "Customer asking about basic facial, mention upsell naturally in one line",
     "response": "Facial Basic di Glow Rp 250k, cocok untuk perawatan rutin. 💡 Fun fact: 85% customer kombinasi dengan Chemical Peeling (hemat 15%)!\n\nMau booking Facial Basic aja atau mau paket combo?",
@@ -915,7 +1315,7 @@ export async function POST(req: Request) {
     }
   }
 
-  Example 5 - Medical question redirect (WARM BUT CLEAR):
+  Example 7 - Medical question redirect (WARM BUT CLEAR):
   {
     "thinking": "Complex medical question, redirect to doctor but stay warm",
     "response": "Untuk pertanyaan medis spesifik gini, lebih baik konsultasi langsung sama dokter kami ya 😊\n\nAku bisa buatin appointment konsultasi. Mau?",
@@ -928,6 +1328,57 @@ export async function POST(req: Request) {
     "redirect_to_agent": {
       "should_redirect": true,
       "reason": "Requires professional medical consultation"
+    }
+  }
+
+  Example 8 - Complaint about treatment (MUST REDIRECT):
+  Customer: "Treatment kemarin malah bikin kulit saya iritasi!"
+  {
+    "thinking": "Customer is complaining about treatment side effects - MUST redirect to human agent. Be empathetic first.",
+    "response": "Maaf banget dengar itu kak 😔 Keluhan seperti ini perlu ditangani langsung oleh tim medis kami.\n\nSaya akan sambungkan Kakak ke tim customer service yang bisa bantu lebih lanjut.\n\n📞 Untuk respon lebih cepat, hubungi:\n• WhatsApp: +62 812-8888-5555\n• Emergency: +62 811-9999-5555",
+    "user_mood": "frustrated",
+    "suggested_questions": ["Hubungi customer service", "Nomor emergency klinik"],
+    "debug": {
+      "context_used": false
+    },
+    "matched_categories": ["complaint"],
+    "redirect_to_agent": {
+      "should_redirect": true,
+      "reason": "Customer complaint - treatment side effect (skin irritation)"
+    }
+  }
+
+  Example 9 - Refund request (MUST REDIRECT):
+  Customer: "Saya mau refund pesanan saya"
+  {
+    "thinking": "Customer requesting refund - MUST redirect to human agent. Cannot process refunds as bot.",
+    "response": "Saya mengerti kak. Untuk proses refund, tim customer service kami yang akan bantu langsung.\n\nSaya sambungkan ke tim kami ya 🙏\n\n📞 Kakak juga bisa langsung hubungi:\n• WhatsApp: +62 812-8888-5555\n• Email: cs@glowclinic.id",
+    "user_mood": "negative",
+    "suggested_questions": ["Hubungi customer service", "Kebijakan refund"],
+    "debug": {
+      "context_used": false
+    },
+    "matched_categories": ["refund"],
+    "redirect_to_agent": {
+      "should_redirect": true,
+      "reason": "Refund request - requires human agent authorization"
+    }
+  }
+
+  Example 10 - Cancellation request (MUST REDIRECT):
+  Customer: "Tolong cancel appointment saya"
+  {
+    "thinking": "Customer wants to cancel appointment - redirect to human agent to handle properly.",
+    "response": "Baik kak, untuk pembatalan appointment akan saya sambungkan ke tim kami yang bisa bantu proses cancel dan pengembalian deposit (jika ada).\n\n📞 Untuk proses lebih cepat:\n• WhatsApp: +62 812-8888-5555",
+    "user_mood": "negative",
+    "suggested_questions": ["Hubungi customer service", "Kebijakan pembatalan"],
+    "debug": {
+      "context_used": false
+    },
+    "matched_categories": ["cancellation"],
+    "redirect_to_agent": {
+      "should_redirect": true,
+      "reason": "Appointment cancellation request - requires human agent"
     }
   }
   `
@@ -1120,13 +1571,19 @@ export async function POST(req: Request) {
 
     console.log(`📊 Stop reason: ${response.stop_reason} `);
 
-    // Handle tool use if Claude requested it
-    if (response.stop_reason === "tool_use") {
-      console.log("🔧 Tool use detected, executing tools...");
+    // Handle tool use if Claude requested it - MULTI-TURN LOOP
+    // This allows chaining tools (e.g., create_booking → create_payment_link)
+    const MAX_TOOL_ROUNDS = 5; // Safety limit to prevent infinite loops
+    let toolRound = 0;
+    let currentMessages: Anthropic.MessageParam[] = [...anthropicMessages];
+
+    while (response.stop_reason === "tool_use" && toolRound < MAX_TOOL_ROUNDS) {
+      toolRound++;
+      console.log(`🔧 Tool use detected (round ${toolRound}/${MAX_TOOL_ROUNDS}), executing tools...`);
 
       // Extract tool use blocks
       const toolUses = extractToolUse(response);
-      console.log(`📦 Found ${toolUses.length} tool(s) to execute`);
+      console.log(`📦 Found ${toolUses.length} tool(s) to execute in round ${toolRound}`);
 
       // Get or create customer for tool execution
       let executionCustomerId = customerId;
@@ -1152,8 +1609,8 @@ export async function POST(req: Request) {
       const toolResultContent = formatToolResults(toolResults);
 
       // Add assistant response and tool results to messages
-      const messagesWithTools: Anthropic.MessageParam[] = [
-        ...anthropicMessages,
+      currentMessages = [
+        ...currentMessages,
         {
           role: "assistant",
           content: response.content,
@@ -1165,14 +1622,14 @@ export async function POST(req: Request) {
       ];
 
       // Call Claude again with tool results
-      console.log("🔄 Sending tool results back to Claude...");
+      console.log(`🔄 Sending tool results back to Claude (round ${toolRound})...`);
       response = await retryWithBackoff(
         async () => {
           try {
             return await anthropic.messages.create({
               model: model,
-              max_tokens: 800, // ⬅️ Reduced from 2000 (tool responses usually shorter)
-              messages: messagesWithTools,
+              max_tokens: 1000, // Enough for tool chaining responses
+              messages: currentMessages,
               system: systemPrompt,
               tools: BOT_TOOLS,
               temperature: 0.3,
@@ -1187,7 +1644,14 @@ export async function POST(req: Request) {
         { maxRetries: 2, initialDelay: 1000, maxDelay: 3000 }
       );
 
-      console.log("✅ Claude response with tool results received");
+      console.log(`✅ Claude response received (round ${toolRound}), stop_reason: ${response.stop_reason}`);
+    }
+
+    if (toolRound >= MAX_TOOL_ROUNDS) {
+      console.warn(`⚠️ Reached maximum tool rounds (${MAX_TOOL_ROUNDS}), stopping tool execution`);
+    }
+    if (toolRound > 0) {
+      console.log(`✅ Tool execution complete after ${toolRound} round(s)`);
     }
 
     measureTime("Claude Generation Complete");
@@ -1347,7 +1811,26 @@ export async function POST(req: Request) {
       }
     }
 
-    const validatedResponse = responseSchema.parse(parsedResponse);
+    // Use safeParse to prevent Zod validation errors from crashing the response
+    const parseResult = responseSchema.safeParse(parsedResponse);
+    let validatedResponse;
+
+    if (parseResult.success) {
+      validatedResponse = parseResult.data;
+    } else {
+      // Log the validation error but still return the response
+      console.warn("⚠️ Zod validation failed, using fallback:", parseResult.error.issues.map(i => `${i.path}: ${i.message}`).join(", "));
+      validatedResponse = {
+        response: parsedResponse.response || cleanedText || "Maaf, terjadi kesalahan. Silakan coba lagi.",
+        thinking: parsedResponse.thinking || "Validation fallback",
+        user_mood: "neutral" as const,
+        suggested_questions: Array.isArray(parsedResponse.suggested_questions) ? parsedResponse.suggested_questions : [],
+        debug: { context_used: isRagWorking },
+        matched_categories: parsedResponse.matched_categories,
+        tools_used: parsedResponse.tools_used,
+        redirect_to_agent: parsedResponse.redirect_to_agent,
+      };
+    }
 
     const responseWithId = {
       id: crypto.randomUUID(),
@@ -1388,21 +1871,26 @@ export async function POST(req: Request) {
           .reverse()
           .find((m: any) => m.role === "user");
 
+        // Batch save messages for better performance
+        const messagesToSave = [];
         if (latestUserMessage) {
-          await addMessage(conversationIdForSave, "user", latestUserMessage.content);
-          console.log("✅ User message saved to database");
+          messagesToSave.push({
+            conversationId: conversationIdForSave,
+            role: 'user' as const,
+            content: latestUserMessage.content
+          });
         }
-
-        // Save assistant response
-        await addMessage(
-          conversationIdForSave,
-          "assistant",
-          JSON.stringify({
+        messagesToSave.push({
+          conversationId: conversationIdForSave,
+          role: 'assistant' as const,
+          content: JSON.stringify({
             response: validatedResponse.response,
             thinking: validatedResponse.thinking,
           })
-        );
-        console.log("✅ Assistant message saved to database");
+        });
+
+        await addMessages(messagesToSave);
+        logger.info('Messages saved to database', { count: messagesToSave.length });
 
         // Update conversation metadata
         await updateConversationMetadata(conversationIdForSave, {

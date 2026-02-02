@@ -15,7 +15,7 @@ A: Harga treatment kami mulai dari **Rp499.000** untuk Facial treatment. Untuk l
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi ZAP Premiere?
+### Di mana lokasi ZAP Premiere? Cabangnya ada di mana?
 A: Kami memiliki cabang di **berbagai mall besar di seluruh Indonesia** - lokasi sangat strategis dan mudah diakses! Cabang kami tersebar dari Jakarta, Surabaya, Bandung, hingga kota-kota besar lainnya.
 
 ### Kapan jam operasional klinik?

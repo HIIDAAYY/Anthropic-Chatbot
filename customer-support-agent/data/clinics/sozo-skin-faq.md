@@ -15,7 +15,7 @@ A: Harga treatment kami mulai dari **Rp199.000** untuk Biolight Face. Semua harg
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi Sozo Skin Clinic?
+### Di mana lokasi Sozo Skin Clinic? Cabangnya ada di mana?
 A: Kami memiliki cabang di **Jakarta dan Tangerang**, khususnya area Tebet - lokasi strategis dan nyaman.
 
 ### Kapan jam operasional klinik?

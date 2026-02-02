@@ -15,7 +15,7 @@ A: Harga treatment kami mulai dari **Rp189.000** untuk Special Package slimming.
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi B Clinic Multi Medika?
+### Di mana lokasi B Clinic Multi Medika? Cabangnya ada di mana?
 A: Kami memiliki cabang di **Jakarta, Bekasi, dan Surabaya**. Lokasi strategis dengan akses mudah!
 
 ### Kapan jam operasional klinik?

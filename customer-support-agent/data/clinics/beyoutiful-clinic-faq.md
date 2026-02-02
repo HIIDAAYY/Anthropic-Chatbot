@@ -15,7 +15,7 @@ A: Harga treatment kami mulai dari **Rp4.000.000** untuk Skin Booster. Untuk bed
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi Beyoutiful Clinic?
+### Di mana lokasi Beyoutiful Clinic? Cabangnya ada di mana?
 A: Kami memiliki cabang di **Jakarta area Pakubuwono dan PIK (Pantai Indah Kapuk)** - lokasi eksklusif dan nyaman.
 
 ### Kapan jam operasional klinik?

@@ -34,6 +34,7 @@ model Conversation {
   salesFunnelLogs SalesFunnelLog[]
   upsellAttempts  UpsellAttempt[]
   promoCodes      PromoCode[]
+  handoff         ConversationHandoff?
 
   @@index([customerId])
   @@index([status])
@@ -230,6 +231,8 @@ model AdminUser {
   updatedAt     DateTime
   AdminAuditLog AdminAuditLog[]
   AdminSession  AdminSession[]
+  assignedHandoffs ConversationHandoff[]
+  notifications    Notification[]
 
   @@index([email])
   @@index([username])
@@ -272,13 +275,66 @@ model LearnedQAPair {
   @@index([conversationId])
   @@index([status])
   @@index([qualityScore])
+
   @@index([pineconeId])
   @@map("learned_qa_pairs")
 }
 
 // ============================================
-// SALES AUTOMATION MODELS
+// ADMIN DASHBOARD MODELS
 // ============================================
+
+model ConversationHandoff {
+  id              String        @id @default(cuid())
+  conversationId  String        @unique @map("conversation_id")
+  assignedAgentId String?       @map("assigned_agent_id")
+  
+  status          HandoffStatus @default(PENDING)
+  priority        Int           @default(0) // 0=Low, 1=Medium, 2=High, 3=Urgent
+  
+  handoffReason   String?       @map("handoff_reason") @db.Text
+  resolutionNotes String?       @map("resolution_notes") @db.Text
+  internalNotes   String?       @map("internal_notes") @db.Text
+  
+  handoffAt       DateTime      @default(now()) @map("handoff_at")
+  resolvedAt      DateTime?     @map("resolved_at")
+  
+  conversation    Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  assignedAgent   AdminUser?    @relation(fields: [assignedAgentId], references: [id])
+
+  @@index([status])
+  @@index([priority])
+  @@index([assignedAgentId])
+  @@map("conversation_handoffs")
+}
+
+model Notification {
+  id                    String   @id @default(cuid())
+  agentId               String   @map("agent_id")
+  type                  String   // "handoff_request", "handoff_assigned", "system"
+  title                 String
+  message               String   @db.Text
+  isRead                Boolean  @default(false) @map("is_read")
+  
+  relatedConversationId String?  @map("related_conversation_id")
+  relatedHandoffId      String?  @map("related_handoff_id")
+  
+  createdAt             DateTime @default(now()) @map("created_at")
+  
+  agent                 AdminUser @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+enum HandoffStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  ESCALATED
+}
+
 
 // Track customer progression through sales funnel
 model SalesFunnelLog {

@@ -15,7 +15,7 @@ A: Harga treatment kami mulai dari **Rp3.500.000** untuk Paket Whitening. Untuk 
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi Queen Plastic Surgery?
+### Di mana lokasi Queen Plastic Surgery? Cabangnya ada di mana?
 A: Kami berlokasi di **Jakarta Utara, area Sunter** - lokasi strategis dan mudah diakses dari berbagai area Jakarta.
 
 ### Kapan jam operasional klinik?

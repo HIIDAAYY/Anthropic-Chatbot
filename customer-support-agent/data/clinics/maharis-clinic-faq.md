@@ -15,7 +15,7 @@ A: Harga treatment kami mulai dari **Rp750.000** untuk Radiofrequency. Kami adal
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi Maharis Clinic?
+### Di mana lokasi Maharis Clinic? Cabangnya ada di mana?
 A: Kami berlokasi di **Jakarta Pusat dan Jakarta Selatan** - lokasi premium dan eksklusif.
 
 ### Kapan jam operasional klinik?

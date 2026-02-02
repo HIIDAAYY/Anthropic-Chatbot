@@ -15,7 +15,7 @@ A: Harga layanan kami mulai dari **Rp158.000** untuk treatment dermabrasi. Untuk
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi The Clinic Beautylosophy?
+### Di mana lokasi The Clinic Beautylosophy? Cabangnya ada di mana?
 A: Kami memiliki cabang di **Jakarta, Bandung, Medan**, dan kota-kota besar lainnya di Indonesia. Lokasinya strategis dan mudah dijangkau.
 
 ### Kapan jam operasional klinik?

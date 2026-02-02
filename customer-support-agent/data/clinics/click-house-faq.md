@@ -15,7 +15,7 @@ A: Harga treatment permanent hair removal kami sangat terjangkau, mulai dari **R
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi Click House?
+### Di mana lokasi Click House? Cabangnya ada di mana?
 A: Click House memiliki cabang di **2 kota besar**:
 
 📍 **Jakarta** - Lokasi di area Jakarta pusat, strategis dan mudah dijangkau dengan transportasi umum (MRT/Busway) maupun kendaraan pribadi.

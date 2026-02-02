@@ -15,7 +15,7 @@ A: Harga treatment kami mulai dari **Rp5.950.000** untuk Filler - kami adalah kl
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi Euroskinlab?
+### Di mana lokasi Euroskinlab? Cabangnya ada di mana?
 A: Kami memiliki cabang di **Jakarta dan Surabaya** - lokasi premium dengan fasilitas mewah.
 
 ### Kapan jam operasional klinik?

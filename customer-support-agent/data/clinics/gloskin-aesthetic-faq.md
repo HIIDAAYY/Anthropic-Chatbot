@@ -15,7 +15,7 @@ A: Harga treatment kami mulai dari **Rp630.000** untuk Oxy Jet Facial. Kami puny
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi Gloskin Aesthetic?
+### Di mana lokasi Gloskin Aesthetic? Cabangnya ada di mana?
 A: Kami memiliki cabang di **Jakarta, Surabaya, dan Makassar** - lokasi strategis di pusat kota.
 
 ### Kapan jam operasional klinik?

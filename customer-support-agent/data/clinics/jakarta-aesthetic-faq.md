@@ -15,7 +15,7 @@ A: Karena kami adalah klinik premium dengan treatment yang disesuaikan individua
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi Jakarta Aesthetic Clinic?
+### Di mana lokasi Jakarta Aesthetic Clinic? Cabangnya ada di mana?
 A: Kami berlokasi di **Jakarta Selatan, area Gunawarman** - lokasi premium dan mudah diakses dari berbagai area Jakarta.
 
 ### Kapan jam operasional klinik?

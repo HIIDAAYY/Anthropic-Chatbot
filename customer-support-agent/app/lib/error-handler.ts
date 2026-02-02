@@ -3,6 +3,8 @@
  * Provides custom error classes and error handling functions
  */
 
+import { errorMonitor } from './error-monitor';
+
 /**
  * Base class for custom application errors
  */
@@ -123,6 +125,18 @@ export function logError(error: Error, context?: Record<string, any>) {
   console.error('Name:', error.name);
   console.error('Message:', error.message);
   console.error('Operational:', isOperational);
+
+  // Send critical errors to monitoring webhook
+  if (!isOperational || error instanceof DatabaseError || error instanceof ClaudeAPIError) {
+    errorMonitor.alert({
+      message: `${error.name}: ${error.message}`,
+      error,
+      context,
+      severity: error instanceof DatabaseError ? 'critical' : 'high',
+    }).catch((monitorError) => {
+      console.error('Failed to send error to monitor:', monitorError);
+    });
+  }
 
   if (context) {
     console.error('Context:', JSON.stringify(context, null, 2));

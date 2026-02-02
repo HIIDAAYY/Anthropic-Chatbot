@@ -1,45 +1,74 @@
-/**
- * Admin API: Get Pending Conversations
- * GET /api/admin/conversations?key=xxx
- * Returns all conversations that need agent action (redirected but not resolved)
- */
-import { NextRequest, NextResponse } from 'next/server';
-import { getPendingConversations } from '@/app/lib/db-service';
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { getSessionUser } from '@/app/lib/admin-auth';
+import { Prisma } from '@prisma/client';
 
-export const dynamic = 'force-dynamic';
-
-export async function GET(req: NextRequest) {
+export async function GET(request: Request) {
   try {
-    // Simple auth check using query parameter
-    const key = req.nextUrl.searchParams.get('key');
-
-    if (!key || key !== process.env.ADMIN_KEY) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid admin key' },
-        { status: 401 }
-      );
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log('📊 Fetching pending conversations for admin dashboard...');
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get('search');
+    const status = searchParams.get('status');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const skip = (page - 1) * limit;
 
-    // Get all conversations pending agent action
-    const conversations = await getPendingConversations();
+    const where: Prisma.ConversationWhereInput = {};
 
-    console.log(`✅ Found ${conversations.length} pending conversations`);
-    console.log(`📋 Conversation IDs:`, conversations.map(c => `${c.id} (${c.status})`));
+    if (status && status !== 'ALL') {
+      where.status = status as any;
+    }
 
-    // Create response with no-cache headers
-    const response = NextResponse.json(conversations);
-    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    response.headers.set('Pragma', 'no-cache');
-    response.headers.set('Expires', '0');
+    if (search) {
+      where.customer = {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { phoneNumber: { contains: search, mode: 'insensitive' } },
+        ],
+      };
+    }
 
-    return response;
+    const [conversations, total] = await Promise.all([
+      prisma.conversation.findMany({
+        where,
+        include: {
+          customer: true,
+          messages: {
+            orderBy: { timestamp: 'desc' },
+            take: 1,
+          },
+          _count: {
+            select: { messages: true },
+          },
+        },
+        orderBy: { startedAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.conversation.count({ where }),
+    ]);
+
+    const formattedConversations = conversations.map(conv => ({
+      ...conv,
+      lastMessage: conv.messages[0],
+      messageCount: conv._count.messages,
+    }));
+
+    return NextResponse.json({
+      conversations: formattedConversations,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        page,
+        limit,
+      },
+    });
   } catch (error) {
-    console.error('❌ Error fetching conversations:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch conversations' },
-      { status: 500 }
-    );
+    console.error('Conversations list error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

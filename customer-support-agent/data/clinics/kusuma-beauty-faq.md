@@ -15,7 +15,7 @@ A: **Harga bervariasi** tergantung jenis treatment dan kebutuhan. Silakan hubung
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi Kusuma Beauty Clinic?
+### Di mana lokasi Kusuma Beauty Clinic? Cabangnya ada di mana?
 A: Kami memiliki cabang di **Jakarta, Tangerang, dan Lampung** - lokasi strategis dengan akses mudah.
 
 ### Kapan jam operasional klinik?

@@ -15,7 +15,7 @@ A: Harga laser treatment kami mulai dari **Rp1.500.000**. Untuk IV Therapy dan t
 
 ## 3. LOKASI & JAM OPERASIONAL
 
-### Di mana lokasi Ovela Clinic?
+### Di mana lokasi Ovela Clinic? Cabangnya ada di mana?
 A: Kami berlokasi di **Jakarta Selatan, area Tebet** - lokasi tenang dan nyaman untuk treatment yang relax.
 
 ### Kapan jam operasional klinik?
