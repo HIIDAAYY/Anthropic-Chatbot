@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -22,8 +22,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Search, Loader2, MessageSquare, ArrowRight } from 'lucide-react';
-import { useDebounce } from '@/lib/hooks/use-debounce'; // Assuming this exists or I need to create it. I'll create a simple one inside if needed or assume standard lib. 
-// Actually I'll implement simple debounce here to be safe.
 
 function useDebounceValue<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -40,7 +38,6 @@ function useDebounceValue<T>(value: T, delay: number): T {
 
 export default function ConversationsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
