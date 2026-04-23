@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: customer-support-agent/package-lock.json
+
+      - name: Install dependencies
+        working-directory: customer-support-agent
+        run: npm ci
+        env:
+          # Skip postinstall prisma generate on runners without DATABASE_URL;
+          # prisma generate runs standalone below.
+          PRISMA_SKIP_POSTINSTALL_GENERATE: '1'
+
+      - name: Prisma generate
+        working-directory: customer-support-agent
+        run: npx prisma generate
+
+      - name: Lint
+        working-directory: customer-support-agent
+        run: npm run lint
+
+      - name: Typecheck
+        working-directory: customer-support-agent
+        run: npm run typecheck
+
+      - name: Test
+        working-directory: customer-support-agent
+        run: npm run test:run

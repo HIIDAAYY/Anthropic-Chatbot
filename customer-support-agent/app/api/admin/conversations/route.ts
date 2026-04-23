@@ -7,12 +7,15 @@ import { withQueryValidation } from '@/app/lib/validate-request';
 import { ConversationsListQuerySchema } from '@/app/lib/schemas/admin';
 
 export const GET = withErrorHandler(
-  withQueryValidation(ConversationsListQuerySchema, async ({ search, status, page, limit }) => {
+  withQueryValidation(ConversationsListQuerySchema, async (query) => {
     const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { search, status } = query;
+    const page: number = query.page ?? 1;
+    const limit: number = query.limit ?? 20;
     const skip = (page - 1) * limit;
     const where: Prisma.ConversationWhereInput = {};
 
