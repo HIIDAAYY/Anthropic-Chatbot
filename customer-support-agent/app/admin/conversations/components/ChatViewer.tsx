@@ -35,6 +35,42 @@ export default function ChatViewer({ messages, customerName }: ChatViewerProps) 
         setTimeout(() => setCopiedId(null), 2000);
     };
 
+    // Extract clean text from potentially JSON-wrapped content
+    const extractCleanContent = (content: string, role: string): string => {
+        // User messages are always plain text
+        if (role === 'user') {
+            return content;
+        }
+
+        // For assistant messages, try to unwrap JSON
+        const trimmed = content.trim();
+
+        // If it doesn't look like JSON, return as-is
+        if (!trimmed.startsWith('{')) {
+            return trimmed;
+        }
+
+        try {
+            const parsed = JSON.parse(trimmed);
+
+            // Extract response field if it exists
+            if (parsed.response && typeof parsed.response === 'string') {
+                return parsed.response;
+            }
+
+            // Try other possible fields
+            if (parsed.message) return parsed.message;
+            if (parsed.text) return parsed.text;
+            if (parsed.content) return parsed.content;
+
+            // If no text field found, return original
+            return trimmed;
+        } catch (e) {
+            // Not valid JSON, return as-is
+            return trimmed;
+        }
+    };
+
     return (
         <div className="flex flex-col h-[600px] border rounded-md bg-gray-50 dark:bg-gray-900">
             <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={scrollRef}>
@@ -60,7 +96,7 @@ export default function ChatViewer({ messages, customerName }: ChatViewerProps) 
                                     ? "bg-blue-600 text-white rounded-tr-none"
                                     : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-tl-none"
                             )}>
-                                <p className="whitespace-pre-wrap">{msg.content}</p>
+                                <p className="whitespace-pre-wrap">{extractCleanContent(msg.content, msg.role)}</p>
                                 <div className={cn(
                                     "text-[10px] mt-1 opacity-70",
                                     isUser ? "text-blue-100" : "text-gray-500"
@@ -75,7 +111,7 @@ export default function ChatViewer({ messages, customerName }: ChatViewerProps) 
                                         "absolute top-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity",
                                         isUser ? "-left-8 text-gray-500" : "-right-8 text-gray-500"
                                     )}
-                                    onClick={() => copyToClipboard(msg.content, msg.id)}
+                                    onClick={() => copyToClipboard(extractCleanContent(msg.content, msg.role), msg.id)}
                                 >
                                     {copiedId === msg.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                                 </Button>

@@ -48,6 +48,42 @@ export default function ChatViewer({ messages, customerName = 'Customer' }: Chat
         });
     };
 
+    // Extract clean text from potentially JSON-wrapped content
+    const extractCleanContent = (content: string, role: string): string => {
+        // User messages are always plain text
+        if (role === 'user') {
+            return content;
+        }
+
+        // For assistant messages, try to unwrap JSON
+        const trimmed = content.trim();
+
+        // If it doesn't look like JSON, return as-is
+        if (!trimmed.startsWith('{')) {
+            return trimmed;
+        }
+
+        try {
+            const parsed = JSON.parse(trimmed);
+
+            // Extract response field if it exists
+            if (parsed.response && typeof parsed.response === 'string') {
+                return parsed.response;
+            }
+
+            // Try other possible fields
+            if (parsed.message) return parsed.message;
+            if (parsed.text) return parsed.text;
+            if (parsed.content) return parsed.content;
+
+            // If no text field found, return original
+            return trimmed;
+        } catch (e) {
+            // Not valid JSON, return as-is
+            return trimmed;
+        }
+    };
+
     // Group messages by date
     const groupedMessages: { [date: string]: Message[] } = {};
     messages.forEach((msg) => {
@@ -104,7 +140,7 @@ export default function ChatViewer({ messages, customerName = 'Customer' }: Chat
 
                                     {/* Message Content */}
                                     <p className="text-sm whitespace-pre-wrap break-words">
-                                        {message.content}
+                                        {extractCleanContent(message.content, message.role)}
                                     </p>
 
                                     {/* Timestamp */}
@@ -123,7 +159,7 @@ export default function ChatViewer({ messages, customerName = 'Customer' }: Chat
                                         className={`absolute -right-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0 ${
                                             message.role === 'user' ? '-left-10 -right-auto' : ''
                                         }`}
-                                        onClick={() => copyMessage(message.id, message.content)}
+                                        onClick={() => copyMessage(message.id, extractCleanContent(message.content, message.role))}
                                     >
                                         {copiedId === message.id ? (
                                             <Check className="h-4 w-4 text-green-500" />

@@ -12,7 +12,8 @@ import {
     LogOut,
     Menu,
     X,
-    ArrowLeftRight
+    ArrowLeftRight,
+    Database
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -29,6 +30,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { href: '/admin/conversations', label: 'Conversations', icon: MessageSquare },
         { href: '/admin/handoffs', label: 'Handoff Queue', icon: ArrowLeftRight },
+        { href: '/admin/knowledge-base', label: 'Knowledge Base', icon: Database },
         { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
         { href: '/admin/agents', label: 'Agents', icon: Users },
         { href: '/admin/settings', label: 'Settings', icon: Settings },

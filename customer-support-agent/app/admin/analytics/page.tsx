@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, TrendingUp, TrendingDown, Users, MessageSquare, Clock, CheckCircle } from 'lucide-react';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from 'recharts';
 
 export default function AnalyticsPage() {
     const [period, setPeriod] = useState('7d');
@@ -32,7 +35,7 @@ export default function AnalyticsPage() {
     const metrics = [
         {
             title: 'Total Conversations',
-            value: analytics?.totalConversations || 0,
+            value: analytics?.metrics?.totalConversations || 0,
             change: '+12%',
             trend: 'up',
             icon: MessageSquare,
@@ -40,7 +43,7 @@ export default function AnalyticsPage() {
         },
         {
             title: 'AI Resolution Rate',
-            value: `${analytics?.aiResolutionRate || 100}%`,
+            value: `${analytics?.metrics?.aiResolutionRate || 100}%`,
             change: '+5%',
             trend: 'up',
             icon: CheckCircle,
@@ -48,7 +51,7 @@ export default function AnalyticsPage() {
         },
         {
             title: 'Avg Response Time',
-            value: analytics?.avgResponseTime || '< 1s',
+            value: '< 1s',
             change: '-10%',
             trend: 'up',
             icon: Clock,
@@ -56,13 +59,28 @@ export default function AnalyticsPage() {
         },
         {
             title: 'Active Users',
-            value: analytics?.activeUsers || 0,
+            value: analytics?.metrics?.activeUsers || 0,
             change: '+8%',
             trend: 'up',
             icon: Users,
             description: 'Unique customers'
         },
     ];
+
+    // Format date labels for chart
+    const formatTrendData = (trends: any[]) => {
+        if (!trends) return [];
+        return trends.map(t => ({
+            ...t,
+            label: new Date(t.date).toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'short',
+            }),
+        }));
+    };
+
+    const trendData = formatTrendData(analytics?.trends);
+    const topCategories = analytics?.topCategories || [];
 
     return (
         <div className="p-6 space-y-6">
@@ -118,48 +136,103 @@ export default function AnalyticsPage() {
 
                     {/* Performance Section */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Conversation Trends Chart */}
                         <Card>
                             <CardHeader>
                                 <CardTitle>Conversation Trends</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="h-64 flex items-center justify-center text-muted-foreground">
-                                    <div className="text-center">
-                                        <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                                        <p>Charts coming soon</p>
-                                        <p className="text-sm">(Requires Recharts library)</p>
+                                {trendData.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height={260}>
+                                        <BarChart data={trendData}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                            <XAxis
+                                                dataKey="label"
+                                                fontSize={12}
+                                                tickLine={false}
+                                                axisLine={false}
+                                            />
+                                            <YAxis
+                                                fontSize={12}
+                                                tickLine={false}
+                                                axisLine={false}
+                                                allowDecimals={false}
+                                            />
+                                            <Tooltip
+                                                contentStyle={{
+                                                    borderRadius: '8px',
+                                                    border: '1px solid #e5e7eb',
+                                                    fontSize: '13px',
+                                                }}
+                                                formatter={(value: number, name: string) => {
+                                                    const labels: Record<string, string> = {
+                                                        conversations: 'Conversations',
+                                                        redirected: 'Redirected',
+                                                    };
+                                                    return [value, labels[name] || name];
+                                                }}
+                                            />
+                                            <Legend
+                                                formatter={(value: string) => {
+                                                    const labels: Record<string, string> = {
+                                                        conversations: 'Conversations',
+                                                        redirected: 'Redirected to Human',
+                                                    };
+                                                    return labels[value] || value;
+                                                }}
+                                            />
+                                            <Bar
+                                                dataKey="conversations"
+                                                fill="#171717"
+                                                radius={[4, 4, 0, 0]}
+                                            />
+                                            <Bar
+                                                dataKey="redirected"
+                                                fill="#ef4444"
+                                                radius={[4, 4, 0, 0]}
+                                            />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="h-64 flex items-center justify-center text-muted-foreground">
+                                        <div className="text-center">
+                                            <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                                            <p>No conversation data yet</p>
+                                            <p className="text-sm">Start chatting to see trends here</p>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </CardContent>
                         </Card>
 
+                        {/* Top Categories - now using real data */}
                         <Card>
                             <CardHeader>
                                 <CardTitle>Top Categories</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="space-y-4">
-                                    {[
-                                        { name: 'Treatment Inquiry', count: 45, percent: 35 },
-                                        { name: 'Booking Request', count: 32, percent: 25 },
-                                        { name: 'Price Information', count: 28, percent: 22 },
-                                        { name: 'Location & Hours', count: 15, percent: 12 },
-                                        { name: 'Other', count: 8, percent: 6 },
-                                    ].map((cat) => (
-                                        <div key={cat.name} className="space-y-1">
-                                            <div className="flex justify-between text-sm">
-                                                <span>{cat.name}</span>
-                                                <span className="text-muted-foreground">{cat.count}</span>
+                                {topCategories.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {topCategories.map((cat: any) => (
+                                            <div key={cat.name} className="space-y-1">
+                                                <div className="flex justify-between text-sm">
+                                                    <span>{cat.name}</span>
+                                                    <span className="text-muted-foreground">{cat.count}</span>
+                                                </div>
+                                                <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-primary rounded-full"
+                                                        style={{ width: `${cat.percent}%` }}
+                                                    />
+                                                </div>
                                             </div>
-                                            <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-primary rounded-full"
-                                                    style={{ width: `${cat.percent}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="h-48 flex items-center justify-center text-muted-foreground">
+                                        <p className="text-sm">No category data yet</p>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>
@@ -172,16 +245,16 @@ export default function AnalyticsPage() {
                         <CardContent>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div className="text-center p-4 bg-secondary/50 rounded-lg">
-                                    <div className="text-3xl font-bold">{analytics?.totalHandoffs || 1}</div>
+                                    <div className="text-3xl font-bold">{analytics?.metrics?.totalHandoffs || 0}</div>
                                     <div className="text-sm text-muted-foreground">Total Handoffs</div>
                                 </div>
                                 <div className="text-center p-4 bg-secondary/50 rounded-lg">
-                                    <div className="text-3xl font-bold">{analytics?.avgHandoffTime || '5m'}</div>
-                                    <div className="text-sm text-muted-foreground">Avg Time to Assignment</div>
+                                    <div className="text-3xl font-bold">{analytics?.metrics?.activeHandoffs || 0}</div>
+                                    <div className="text-sm text-muted-foreground">Active Handoffs</div>
                                 </div>
                                 <div className="text-center p-4 bg-secondary/50 rounded-lg">
-                                    <div className="text-3xl font-bold">{analytics?.handoffResolutionRate || '100%'}</div>
-                                    <div className="text-sm text-muted-foreground">Resolution Rate</div>
+                                    <div className="text-3xl font-bold">{analytics?.metrics?.aiResolutionRate || 100}%</div>
+                                    <div className="text-sm text-muted-foreground">AI Resolution Rate</div>
                                 </div>
                             </div>
                         </CardContent>
