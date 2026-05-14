@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Sidebar from './components/Sidebar';
-import TopBar from './components/TopBar';
+import { SidebarContext } from './components/SidebarContext';
 
 export default function AdminLayout({
     children,
@@ -12,16 +12,21 @@ export default function AdminLayout({
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
-            <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+        <SidebarContext.Provider
+            value={{
+                toggle: () => setSidebarOpen((v) => !v),
+                isOpen: sidebarOpen,
+            }}
+        >
+            <div className="min-h-screen bg-gray-50 flex">
+                <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
 
-            <div className="flex-1 flex flex-col min-w-0 transition-all duration-300">
-                <TopBar toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-
-                <main className="flex-1 p-4 md:p-6 overflow-y-auto">
-                    {children}
-                </main>
+                <div className="flex-1 flex flex-col min-w-0">
+                    <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+                        {children}
+                    </main>
+                </div>
             </div>
-        </div>
+        </SidebarContext.Provider>
     );
 }
