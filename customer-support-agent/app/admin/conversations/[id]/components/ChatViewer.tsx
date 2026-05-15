@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { User, Bot, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import { parseMessageContent } from '@/app/lib/parseMessageContent';
 
 interface Message {
     id: string;
@@ -104,7 +105,7 @@ export default function ChatViewer({ messages, customerName = 'Customer' }: Chat
 
                                     {/* Message Content */}
                                     <p className="text-sm whitespace-pre-wrap break-words">
-                                        {message.content}
+                                        {parseMessageContent(message.content).text}
                                     </p>
 
                                     {/* Timestamp */}
@@ -123,7 +124,7 @@ export default function ChatViewer({ messages, customerName = 'Customer' }: Chat
                                         className={`absolute -right-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0 ${
                                             message.role === 'user' ? '-left-10 -right-auto' : ''
                                         }`}
-                                        onClick={() => copyMessage(message.id, message.content)}
+                                        onClick={() => copyMessage(message.id, parseMessageContent(message.content).text)}
                                     >
                                         {copiedId === message.id ? (
                                             <Check className="h-4 w-4 text-green-500" />

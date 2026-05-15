@@ -133,14 +133,15 @@ const RightSidebar: React.FC = () => {
   };
 
   return (
-    <aside className="w-[380px] pr-4 overflow-hidden pb-4">
+    <aside className="hidden md:block w-[380px] pr-4 pt-4 overflow-hidden pb-4">
       <Card
         className={`${fadeInUpClass} h-full overflow-hidden`}
         style={fadeStyle}
       >
         <CardHeader>
-          <CardTitle className="text-sm font-medium leading-none">
-            Knowledge Base History
+          <CardTitle className="text-sm font-medium leading-none flex items-center gap-2">
+            <span className="text-base">📚</span>
+            Knowledge Base
           </CardTitle>
         </CardHeader>
         <CardContent className="overflow-y-auto h-[calc(100%-45px)]">

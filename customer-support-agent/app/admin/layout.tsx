@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from './components/Sidebar';
 import { SidebarContext } from './components/SidebarContext';
 
@@ -10,6 +11,35 @@ export default function AdminLayout({
     children: React.ReactNode;
 }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [authChecked, setAuthChecked] = useState(false);
+    const router = useRouter();
+    const pathname = usePathname();
+
+    useEffect(() => {
+        if (pathname === '/admin/login') {
+            setAuthChecked(true);
+            return;
+        }
+        fetch('/api/admin/auth/me')
+            .then((res) => {
+                if (res.status === 401) {
+                    router.replace('/admin/login');
+                } else {
+                    setAuthChecked(true);
+                }
+            })
+            .catch(() => {
+                router.replace('/admin/login');
+            });
+    }, [pathname, router]);
+
+    if (!authChecked) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600" />
+            </div>
+        );
+    }
 
     return (
         <SidebarContext.Provider

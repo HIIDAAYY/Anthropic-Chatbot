@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import TopNavBar from "@/components/TopNavBar";
 import ChatArea from "@/components/ChatArea";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import config from "@/config";
 
 const LeftSidebar = dynamic(() => import("@/components/LeftSidebar"), {
@@ -28,7 +29,11 @@ function ChatWrapper() {
     console.log('⚠️  No clinicId specified - bot will respond to all clinics');
   }
 
-  return <ChatArea clinicId={clinicId} />;
+  return (
+    <ErrorBoundary>
+      <ChatArea clinicId={clinicId} />
+    </ErrorBoundary>
+  );
 }
 
 export default function Home() {

@@ -8,6 +8,7 @@ import { Search, Loader2, ArrowRight } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import { useSidebar } from '../components/SidebarContext';
 import { cn } from '@/lib/utils';
+import { parseMessageContent } from '@/app/lib/parseMessageContent';
 
 function useDebounceValue<T>(value: T, delay: number): T {
     const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -162,7 +163,7 @@ export default function ConversationsPage() {
                                 .join('')
                                 .toUpperCase();
                             const lastMsg = conv.lastMessage?.content || 'Belum ada pesan';
-                            const safeMsg = typeof lastMsg === 'string' ? lastMsg : JSON.stringify(lastMsg);
+                            const safeMsg = parseMessageContent(lastMsg).text;
                             return (
                                 <div
                                     key={conv.id}

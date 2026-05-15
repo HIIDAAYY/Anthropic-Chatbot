@@ -13,12 +13,13 @@ import {
   LifeBuoyIcon,
   BookOpenText,
   ChevronDown,
-  Send,
+  Sparkles,
+  Plus,
+  ArrowRight,
 } from "lucide-react";
 import "highlight.js/styles/atom-one-dark.css";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import Image from "next/image";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -241,6 +242,7 @@ interface Message {
   id: string;
   role: string;
   content: string;
+  suggested_questions?: string[];
 }
 
 // Define the props interface for ConversationHeader
@@ -536,17 +538,11 @@ function ChatArea({ clinicId }: { clinicId: string | null }) {
       content: typeof event === "string" ? event : input,
     };
 
-    const placeholderMessage = {
+    const placeholderMessage: Message = {
       id: crypto.randomUUID(),
       role: "assistant",
-      content: JSON.stringify({
-        response: "",
-        thinking: "AI is processing...",
-        user_mood: "neutral",
-        debug: {
-          context_used: false,
-        },
-      }),
+      content: "",
+      suggested_questions: [],
     };
 
     setMessages((prevMessages) => [
@@ -708,6 +704,9 @@ function ChatArea({ clinicId }: { clinicId: string | null }) {
       };
 
       const cleanedContent = unwrapResponse(data);
+      const suggestedQuestions: string[] = Array.isArray(data.suggested_questions)
+        ? data.suggested_questions
+        : [];
 
       setMessages((prevMessages) => {
         const newMessages = [...prevMessages];
@@ -716,6 +715,7 @@ function ChatArea({ clinicId }: { clinicId: string | null }) {
           id: crypto.randomUUID(),
           role: "assistant",
           content: cleanedContent,
+          suggested_questions: suggestedQuestions,
         };
         return newMessages;
       });
@@ -783,7 +783,7 @@ function ChatArea({ clinicId }: { clinicId: string | null }) {
   }, []);
 
   return (
-    <Card className="flex-1 flex flex-col mb-4 mr-4 ml-4">
+    <Card className="flex-1 flex flex-col mb-4 mr-4 ml-4 mt-4">
       <CardContent className="flex-1 flex flex-col overflow-hidden pt-4 px-4 pb-0">
         <ConversationHeader
           selectedModel={selectedModel}
@@ -797,34 +797,35 @@ function ChatArea({ clinicId }: { clinicId: string | null }) {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full animate-fade-in-up">
-              <Avatar className="w-10 h-10 mb-4 border">
-                <AvatarImage
-                  src="/ant-logo.svg"
-                  alt="AI Assistant Avatar"
-                  width={40}
-                  height={40}
-                />
-              </Avatar>
-              <h2 className="text-2xl font-semibold mb-8">
+              <div className="w-16 h-16 mb-5 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
+                <Sparkles className="w-7 h-7 text-primary-foreground" fill="currentColor" />
+              </div>
+              <h2 className="text-2xl font-bold mb-8">
                 Here&apos;s how I can help
               </h2>
-              <div className="space-y-4 text-sm">
+              <div className="space-y-4 text-sm w-full max-w-md">
                 <div className="flex items-center gap-3">
-                  <HandHelping className="text-muted-foreground" />
+                  <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                    <HandHelping className="w-4 h-4 text-primary" />
+                  </div>
                   <p className="text-muted-foreground">
                     Need guidance? I&apos;ll help navigate tasks using internal
                     resources.
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <WandSparkles className="text-muted-foreground" />
+                  <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                    <WandSparkles className="w-4 h-4 text-primary" />
+                  </div>
                   <p className="text-muted-foreground">
                     I&apos;m a whiz at finding information! I can dig through
                     your knowledge base.
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <BookOpenText className="text-muted-foreground" />
+                  <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                    <BookOpenText className="w-4 h-4 text-primary" />
+                  </div>
                   <p className="text-muted-foreground">
                     I&apos;m always learning! The more you share, the better I
                     can assist you.
@@ -860,26 +861,27 @@ function ChatArea({ clinicId }: { clinicId: string | null }) {
                         : "bg-muted border"
                         }`}
                     >
-                      <MessageContent
-                        content={message.content}
-                        role={message.role}
-                      />
+                      {message.role === "assistant" && message.content === "" ? (
+                        <span className="flex items-center gap-1 h-5">
+                          <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce [animation-delay:0ms]" />
+                          <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce [animation-delay:150ms]" />
+                          <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce [animation-delay:300ms]" />
+                        </span>
+                      ) : (
+                        <MessageContent
+                          content={message.content}
+                          role={message.role}
+                        />
+                      )}
                     </div>
                   </div>
-                  {message.role === "assistant" && (() => {
-                    try {
-                      const parsed = JSON.parse(message.content);
-                      return (
-                        <SuggestedQuestions
-                          questions={parsed.suggested_questions || []}
-                          onQuestionClick={handleSuggestedQuestionClick}
-                          isLoading={isLoading}
-                        />
-                      );
-                    } catch {
-                      return null;
-                    }
-                  })()}
+                  {message.role === "assistant" && message.suggested_questions && message.suggested_questions.length > 0 && (
+                    <SuggestedQuestions
+                      questions={message.suggested_questions}
+                      onQuestionClick={handleSuggestedQuestionClick}
+                      isLoading={isLoading}
+                    />
+                  )}
                 </div>
               ))}
               <div ref={messagesEndRef} style={{ height: "1px" }} />
@@ -888,47 +890,63 @@ function ChatArea({ clinicId }: { clinicId: string | null }) {
         </div>
       </CardContent>
 
-      <CardFooter className="p-4 pt-0">
+      <CardFooter className="p-4 pt-0 flex flex-col gap-3">
+        {messages.length === 0 && (
+          <div className="flex justify-center gap-2 flex-wrap">
+            {["Info Produk", "Harga", "Bantuan"].map((label) => (
+              <Button
+                key={label}
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isLoading}
+                onClick={() => handleSuggestedQuestionClick(label)}
+                className="rounded-full border-primary/40 text-primary hover:bg-secondary hover:text-primary px-5"
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+        )}
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col w-full relative bg-background border rounded-xl focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
+          className="flex items-center w-full bg-background border rounded-full pl-2 pr-2 py-1.5 gap-2 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
         >
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="rounded-full h-9 w-9 shrink-0 text-muted-foreground hover:bg-secondary"
+          >
+            <Plus className="h-5 w-5" />
+          </Button>
           <Textarea
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Type your message here..."
             disabled={isLoading}
-            className="resize-none min-h-[44px] bg-background  border-0 p-3 rounded-xl shadow-none focus-visible:ring-0"
+            className="resize-none min-h-[36px] max-h-[120px] bg-transparent border-0 p-2 shadow-none focus-visible:ring-0 flex-1"
             rows={1}
           />
-          <div className="flex justify-between items-center p-3">
-            <div>
-              <Image
-                src="/claude-icon.svg"
-                alt="Claude Icon"
-                width={0}
-                height={14}
-                className="w-auto h-[14px] mt-1"
-              />
-            </div>
-            <Button
-              type="submit"
-              disabled={isLoading || input.trim() === ""}
-              className="gap-2"
-              size="sm"
-            >
-              {isLoading ? (
-                <div className="animate-spin h-5 w-5 border-t-2 border-white rounded-full" />
-              ) : (
-                <>
-                  Send Message
-                  <Send className="h-4 w-4" />
-                </>
-              )}
-            </Button>
-          </div>
+          <Button
+            type="submit"
+            disabled={isLoading || input.trim() === ""}
+            size="icon"
+            className="rounded-full h-10 w-10 shrink-0 bg-primary hover:bg-primary/90"
+          >
+            {isLoading ? (
+              <div className="animate-spin h-4 w-4 border-t-2 border-white rounded-full" />
+            ) : (
+              <ArrowRight className="h-4 w-4" />
+            )}
+          </Button>
         </form>
+        <div className="flex justify-center">
+          <span className="text-xs text-muted-foreground">
+            Powered by Claude
+          </span>
+        </div>
       </CardFooter>
     </Card>
   );

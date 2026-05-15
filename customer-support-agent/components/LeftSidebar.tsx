@@ -93,10 +93,13 @@ const LeftSidebar: React.FC = () => {
   }, []);
 
   return (
-    <aside className="w-[380px] pl-4 overflow-hidden pb-4">
+    <aside className="hidden md:block w-[380px] pl-4 pt-4 overflow-hidden pb-4">
       <Card className="h-full overflow-hidden">
         <CardHeader>
-          <CardTitle className="text-sm font-medium leading-none">
+          <CardTitle className="text-sm font-medium leading-none flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
+              <span className="text-primary text-xs">✦</span>
+            </span>
             Assistant Thinking
           </CardTitle>
         </CardHeader>

@@ -1199,7 +1199,7 @@ export async function POST(req: Request) {
   {
       "thinking": "Brief explanation of your reasoning for how you should address the user's query",
       "response": "Your response to the user (may include tool results or regular answer)",
-      "user_mood": "positive|neutral|negative|curious|frustrated|confused|concerned|interested|worried|angry|happy|considering",
+      "user_mood": "Detect the user's actual emotional state from their latest message — choose ONE from: positive|neutral|negative|curious|frustrated|confused|concerned|interested|worried|angry|happy|considering. Examples: complaints/iritasi/kecewa → frustrated or negative; questions/tanya harga → curious or interested; booking langsung → positive; galau/ragu → considering; masalah medis → concerned or worried. Only use neutral if the message has NO emotional signal.",
       "suggested_questions": ["Question 1?", "Question 2?", "Question 3?"],
       "debug": {
         "context_used": true|false
@@ -1694,6 +1694,7 @@ export async function POST(req: Request) {
         console.error("❌ Failed to parse JSON from code block:", e);
         // If JSON parsing fails, use text before the code block as fallback
         const textBeforeJson = cleanedText.split(/```json/i)[0].trim();
+        console.log("[mood-debug] JSON parsing failed — text before JSON path, defaulting mood to neutral");
         parsedResponse = {
           response: textBeforeJson || cleanedText,
           thinking: "JSON parsing failed, using text content",
@@ -1820,10 +1821,14 @@ export async function POST(req: Request) {
     } else {
       // Log the validation error but still return the response
       console.warn("⚠️ Zod validation failed, using fallback:", parseResult.error.issues.map(i => `${i.path}: ${i.message}`).join(", "));
+      const fallbackMood = VALID_USER_MOODS.includes(parsedResponse.user_mood as any)
+        ? (parsedResponse.user_mood as (typeof VALID_USER_MOODS)[number])
+        : "neutral";
+      console.log("[mood-debug] Zod validation fallback — parsed mood:", parsedResponse.user_mood, "→ using:", fallbackMood);
       validatedResponse = {
         response: parsedResponse.response || cleanedText || "Maaf, terjadi kesalahan. Silakan coba lagi.",
         thinking: parsedResponse.thinking || "Validation fallback",
-        user_mood: "neutral" as const,
+        user_mood: fallbackMood,
         suggested_questions: Array.isArray(parsedResponse.suggested_questions) ? parsedResponse.suggested_questions : [],
         debug: { context_used: isRagWorking },
         matched_categories: parsedResponse.matched_categories,
