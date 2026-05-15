@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import Image from "next/image";
 import { Moon, Sun, Check } from "lucide-react";
 import { useTheme } from "next-themes";
 import { themes } from "@/styles/themes";
@@ -46,13 +45,13 @@ const ColorCircle = ({
 
 const TopNavBar = () => {
   const { theme, setTheme } = useTheme();
-  const [colorTheme, setColorTheme] = useState<ThemeName>("neutral");
+  const [colorTheme, setColorTheme] = useState<ThemeName>("violet");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     const savedColorTheme = (localStorage.getItem("color-theme") ||
-      "neutral") as ThemeName;
+      "violet") as ThemeName;
     setColorTheme(savedColorTheme);
     applyTheme(savedColorTheme, theme === "dark");
   }, [theme]);
@@ -86,19 +85,29 @@ const TopNavBar = () => {
   }
 
   return (
-    <nav className="text-foreground p-4 flex justify-between items-center">
-      <div className="font-bold text-xl flex gap-2 items-center">
-        <Image
-          src={theme === "dark" ? "/wordmark-dark.svg" : "/wordmark.svg"}
-          alt="Company Wordmark"
-          width={112}
-          height={20}
-        />
+    <nav className="bg-primary text-primary-foreground px-6 py-3 flex justify-between items-center">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-white/95 flex items-center justify-center">
+          <span className="text-primary font-bold text-lg">H</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="font-semibold text-base leading-tight">
+            HAI Assistant
+          </span>
+          <span className="flex items-center gap-1.5 text-xs text-white/80">
+            <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
+            Online
+          </span>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline">
+            <Button
+              variant="outline"
+              size="icon"
+              className="bg-transparent border-white/30 text-white hover:bg-white/10 hover:text-white"
+            >
               <ColorCircle themeName={colorTheme} isSelected={false} />
             </Button>
           </DropdownMenuTrigger>
@@ -120,7 +129,11 @@ const TopNavBar = () => {
         </DropdownMenu>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon">
+            <Button
+              variant="outline"
+              size="icon"
+              className="bg-white border-white/30 text-primary hover:bg-white/90 hover:text-primary"
+            >
               <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
               <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
               <span className="sr-only">Toggle theme</span>
@@ -143,7 +156,7 @@ const TopNavBar = () => {
           target="_blank"
           rel="noopener noreferrer"
         >
-          <Button variant="outline" className="text-foreground">
+          <Button className="bg-white text-primary hover:bg-white/90 font-medium">
             Deploy your own
           </Button>
         </Link>
