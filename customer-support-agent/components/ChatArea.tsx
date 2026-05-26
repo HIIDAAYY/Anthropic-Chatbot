@@ -41,6 +41,33 @@ const TypedText = ({ text = "", delay = 5 }) => {
   return <>{displayedText}</>;
 };
 
+const TypedMessage = ({ content, onComplete }: { content: string; onComplete: () => void }) => {
+  const [chars, setChars] = useState(0);
+  const [started, setStarted] = useState(false);
+  const delay = Math.min(2000, Math.max(800, content.length * 2));
+
+  useEffect(() => {
+    const t = setTimeout(() => setStarted(true), delay);
+    return () => clearTimeout(t);
+  }, [delay]);
+
+  useEffect(() => {
+    if (!started || chars >= content.length) {
+      if (started && chars >= content.length) onComplete();
+      return;
+    }
+    const charDelay = content.length > 300 ? 8 : content.length > 150 ? 12 : 18;
+    const t = setTimeout(() => setChars(c => c + 1), charDelay);
+    return () => clearTimeout(t);
+  }, [started, chars, content, onComplete]);
+
+  return (
+    <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeHighlight]}>
+      {content.substring(0, chars) || " "}
+    </ReactMarkdown>
+  );
+};
+
 type ThinkingContent = {
   id: string;
   content: string;
@@ -243,6 +270,7 @@ interface Message {
   role: string;
   content: string;
   suggested_questions?: string[];
+  isNew?: boolean;
 }
 
 // Define the props interface for ConversationHeader
@@ -340,6 +368,22 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   </div>
 );
 
+const getContextualThinking = (userMessage: string): string => {
+  if (/booking|jadwal|appointment|slot|tanggal|tersedia/i.test(userMessage)) {
+    return "Mengecek jadwal yang tersedia... 📅";
+  }
+  if (/harga|price|biaya|berapa|tarif/i.test(userMessage)) {
+    return "Mencari info harga terbaru... 💎";
+  }
+  if (/treatment|facial|laser|peeling|botox|filler|prosedur/i.test(userMessage)) {
+    return "Menyiapkan rekomendasi terbaik... ✨";
+  }
+  if (/frustrasi|kesal|marah|kecewa|masalah/i.test(userMessage)) {
+    return "Memahami kekhawatiran Anda... 💙";
+  }
+  return "Sedang memproses... 🤔";
+};
+
 function ChatArea({ clinicId }: { clinicId: string | null }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -349,6 +393,7 @@ function ChatArea({ clinicId }: { clinicId: string | null }) {
   const [showAvatar, setShowAvatar] = useState(false);
   const [sessionId, setSessionId] = useState<string>("");
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [thinkingMessage, setThinkingMessage] = useState<string>("Sedang memproses... 🤔");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -527,6 +572,10 @@ function ChatArea({ clinicId }: { clinicId: string | null }) {
     }
     if (!showHeader) setShowHeader(true);
     if (!showAvatar) setShowAvatar(true);
+
+    const latestMessage = typeof event === "string" ? event : input;
+    setThinkingMessage(getContextualThinking(latestMessage));
+
     setIsLoading(true);
 
     const clientStart = performance.now();
@@ -716,6 +765,7 @@ function ChatArea({ clinicId }: { clinicId: string | null }) {
           role: "assistant",
           content: cleanedContent,
           suggested_questions: suggestedQuestions,
+          isNew: true,
         };
         return newMessages;
       });
@@ -862,11 +912,18 @@ function ChatArea({ clinicId }: { clinicId: string | null }) {
                         }`}
                     >
                       {message.role === "assistant" && message.content === "" ? (
-                        <span className="flex items-center gap-1 h-5">
-                          <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce [animation-delay:0ms]" />
-                          <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce [animation-delay:150ms]" />
-                          <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce [animation-delay:300ms]" />
+                        <span className="flex flex-col items-start gap-1">
+                          <span className="flex items-center gap-1 h-5">
+                            <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce [animation-delay:0ms]" />
+                            <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce [animation-delay:150ms]" />
+                            <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce [animation-delay:300ms]" />
+                          </span>
+                          <span className="text-xs text-gray-400 italic mt-1">{thinkingMessage}</span>
                         </span>
+                      ) : message.role === "assistant" && message.isNew ? (
+                        <TypedMessage content={message.content} onComplete={() =>
+                          setMessages(prev => prev.map(m => m.id === message.id ? {...m, isNew: false} : m))
+                        } />
                       ) : (
                         <MessageContent
                           content={message.content}
