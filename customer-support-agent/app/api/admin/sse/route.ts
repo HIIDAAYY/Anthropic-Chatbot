@@ -15,26 +15,26 @@ export async function GET(request: Request) {
   const user = await getSessionUser();
   if (!user) return new Response('Unauthorized', { status: 401 });
 
-  let ctrl: ReadableStreamDefaultController;
+  let pingInterval: ReturnType<typeof setInterval>;
+
   const stream = new ReadableStream({
     start(c) {
-      ctrl = c;
       clients.add(c);
       c.enqueue(new TextEncoder().encode(': connected\n\n'));
+
+      pingInterval = setInterval(() => {
+        try { c.enqueue(new TextEncoder().encode(': ping\n\n')); }
+        catch { clearInterval(pingInterval); clients.delete(c); }
+      }, 25000);
+
+      request.signal.addEventListener('abort', () => {
+        clearInterval(pingInterval);
+        clients.delete(c);
+      });
     },
     cancel() {
-      clients.delete(ctrl);
+      clearInterval(pingInterval);
     },
-  });
-
-  const ping = setInterval(() => {
-    try { ctrl.enqueue(new TextEncoder().encode(': ping\n\n')); }
-    catch { clearInterval(ping); }
-  }, 25000);
-
-  request.signal.addEventListener('abort', () => {
-    clearInterval(ping);
-    clients.delete(ctrl);
   });
 
   return new Response(stream, {

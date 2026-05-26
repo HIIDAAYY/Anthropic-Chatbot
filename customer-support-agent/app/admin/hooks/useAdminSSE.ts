@@ -9,18 +9,27 @@ export function useAdminSSE(onEvent: (e: SSEEvent) => void) {
 
   useEffect(() => {
     let es: EventSource;
+    let retryTimer: ReturnType<typeof setTimeout>;
+
     const connect = () => {
       es = new EventSource('/api/admin/sse');
       es.onmessage = (e) => {
-        if (!e.data || e.data.startsWith(':')) return;
-        try { ref.current(JSON.parse(e.data)); } catch {}
+        if (!e.data) return;
+        try { ref.current(JSON.parse(e.data)); }
+        catch (err) {
+          if (process.env.NODE_ENV === 'development') console.warn('[useAdminSSE] parse error', err);
+        }
       };
       es.onerror = () => {
         es.close();
-        setTimeout(connect, 3000);
+        retryTimer = setTimeout(connect, 3000);
       };
     };
     connect();
-    return () => es?.close();
+
+    return () => {
+      clearTimeout(retryTimer);
+      es?.close();
+    };
   }, []);
 }
