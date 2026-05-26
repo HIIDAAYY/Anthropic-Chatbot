@@ -28,7 +28,7 @@ export default function AdminLayout({
             { id: Date.now(), type: event.type, payload: event.payload },
             ...prev.slice(0, 19),
         ]);
-    });
+    }, pathname !== '/admin/login' && authChecked);
 
     useEffect(() => {
         if (pathname === '/admin/login') {

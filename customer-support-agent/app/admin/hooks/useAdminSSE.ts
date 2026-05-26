@@ -3,11 +3,13 @@ import { useEffect, useRef } from 'react';
 
 export type SSEEvent = { type: string; payload: any };
 
-export function useAdminSSE(onEvent: (e: SSEEvent) => void) {
+export function useAdminSSE(onEvent: (e: SSEEvent) => void, enabled = true) {
   const ref = useRef(onEvent);
   ref.current = onEvent;
 
   useEffect(() => {
+    if (!enabled) return;
+
     let es: EventSource;
     let retryTimer: ReturnType<typeof setTimeout>;
 
@@ -31,5 +33,5 @@ export function useAdminSSE(onEvent: (e: SSEEvent) => void) {
       clearTimeout(retryTimer);
       es?.close();
     };
-  }, []);
+  }, [enabled]);
 }

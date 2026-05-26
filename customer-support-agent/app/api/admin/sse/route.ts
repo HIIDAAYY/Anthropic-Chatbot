@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   const user = await getSessionUser();
   if (!user) return new Response('Unauthorized', { status: 401 });
 
-  let pingInterval: ReturnType<typeof setInterval>;
+  let pingInterval: ReturnType<typeof setInterval> | undefined;
 
   const stream = new ReadableStream({
     start(c) {

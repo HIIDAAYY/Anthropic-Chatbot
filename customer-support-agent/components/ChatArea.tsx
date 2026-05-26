@@ -81,13 +81,6 @@ type ThinkingContent = {
   matched_categories?: string[];
 };
 
-interface ConversationHeaderProps {
-  selectedModel: string;
-  setSelectedModel: (modelId: string) => void;
-  models: Model[];
-  showAvatar: boolean;
-}
-
 const UISelector = ({
   redirectToAgent,
 }: {
