@@ -44,6 +44,7 @@ const TypedText = ({ text = "", delay = 5 }) => {
 const TypedMessage = ({ content, onComplete }: { content: string; onComplete: () => void }) => {
   const [chars, setChars] = useState(0);
   const [started, setStarted] = useState(false);
+  const completed = useRef(false);
   const delay = Math.min(2000, Math.max(800, content.length * 2));
 
   useEffect(() => {
@@ -52,10 +53,14 @@ const TypedMessage = ({ content, onComplete }: { content: string; onComplete: ()
   }, [delay]);
 
   useEffect(() => {
-    if (!started || chars >= content.length) {
-      if (started && chars >= content.length) onComplete();
+    if (started && chars >= content.length) {
+      if (!completed.current) {
+        completed.current = true;
+        onComplete();
+      }
       return;
     }
+    if (!started) return;
     const charDelay = content.length > 300 ? 8 : content.length > 150 ? 12 : 18;
     const t = setTimeout(() => setChars(c => c + 1), charDelay);
     return () => clearTimeout(t);
