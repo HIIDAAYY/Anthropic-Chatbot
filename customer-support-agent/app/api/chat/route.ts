@@ -132,6 +132,10 @@ function getClinicNameById(clinicId: string): string {
     "sozo-skin": "Sozo Skin Clinic",
     "youth-beauty": "Youth & Beauty Clinic",
     "zap-premiere": "ZAP Premiere",
+    "sample-ortodonti": "Klinik Ortodonti & Behel Gigi",
+    "sample-spkk": "Klinik Spesialis Kulit & Kelamin (SpKK)",
+    "sample-spgk": "Klinik Spesialis Gizi Klinik (SpGK)",
+    "sample-hijab-shop": "UrbanStyle Hijab Shop",
   };
   return clinicMap[clinicId] || "Klinik Kecantikan & Gigi (Beauty & Dental Clinic)";
 }
@@ -309,6 +313,13 @@ export async function POST(req: Request) {
       if (!conversation) {
         conversation = await createConversation(customer.id);
         console.log("📝 Created new conversation early for sales tracking");
+        try {
+          const { broadcastSSEEvent } = await import('@/app/api/admin/sse/route');
+          broadcastSSEEvent({
+            type: 'new_chat',
+            payload: { conversationId: conversation.id, timestamp: new Date().toISOString() },
+          });
+        } catch {}
       }
 
       activeConversationId = conversation.id;
@@ -542,13 +553,15 @@ export async function POST(req: Request) {
       // This ensures the service list hardcoded in system prompt is always available
       if (!businessContext && clinicId) {
         console.warn(`⚠️ No database business found, using hardcoded fallback for ${clinicId}`);
+        const ecommerceClinicIds = ["sample-hijab-shop"];
+        const detectedType = ecommerceClinicIds.includes(clinicId) ? "ECOMMERCE" : "BEAUTY_CLINIC";
         businessContext = {
           businessId: "demo-clinic-id", // Fallback ID for demo
           businessName: getClinicNameById(clinicId),
-          businessType: "BEAUTY_CLINIC",
+          businessType: detectedType,
           settings: null,
         };
-        console.log(`🏥 Using hardcoded fallback businessContext for: ${businessContext.businessName}`);
+        console.log(`🏥 Using hardcoded fallback businessContext for: ${businessContext.businessName} (${detectedType})`);
       }
 
       await prisma.$disconnect();
@@ -556,13 +569,15 @@ export async function POST(req: Request) {
       console.error("Error auto-detecting business:", error);
       // Even on error, set fallback businessContext so service list is included in prompt
       if (!businessContext && clinicId) {
+        const ecommerceClinicIds = ["sample-hijab-shop"];
+        const detectedType = ecommerceClinicIds.includes(clinicId) ? "ECOMMERCE" : "BEAUTY_CLINIC";
         businessContext = {
           businessId: "demo-clinic-id",
           businessName: getClinicNameById(clinicId),
-          businessType: "BEAUTY_CLINIC",
+          businessType: detectedType,
           settings: null,
         };
-        console.log(`🏥 Using error-fallback businessContext for: ${businessContext.businessName}`);
+        console.log(`🏥 Using error-fallback businessContext for: ${businessContext.businessName} (${detectedType})`);
       }
     }
   }
@@ -659,14 +674,21 @@ export async function POST(req: Request) {
       const { businessName, businessType } = businessContext;
 
       if (businessType === "BEAUTY_CLINIC") {
-        return `You are acting as a customer support assistant for ${businessName}, an Indonesian beauty clinic. You are chatting with customers who need help with booking treatments, checking availability, rescheduling appointments, payment, and other clinic-related questions.
+        return `Kamu adalah Aya, asisten kecantikan personal dari ${businessName}.
+Kamu berbicara seperti teman yang hangat dan peduli — bukan mesin CS yang kaku.
 
-  **Important Guidelines:**
-  - Respond in the SAME LANGUAGE as the customer's question (Indonesian or English)
-  - Be friendly, helpful, and professional with a warm tone suitable for beauty services
-  - Customers are primarily Indonesian, so be culturally aware and use appropriate greetings
-  - Help customers with booking facial treatments, laser treatments, and other beauty services
-  - Guide them through the booking process, payment options (VA, GoPay, QRIS, OVO, ShopeePay), and appointment management`;
+**Karakter Aya:**
+- Sapa dengan "Kak" secara natural, tidak setiap kalimat
+- Tunjukkan empati nyata: "Wah, pasti bikin khawatir ya Kak..." bukan hanya "Saya mengerti"
+- Segera pakai nama customer setelah mereka memperkenalkan diri
+- Tambahkan reaksi natural sesekali: "Oh iya!", "Hmm, oke...", "Sip!"
+- Gunakan gaya bahasa yang sama dengan customer (formal/santai)
+
+**Yang TIDAK boleh:**
+- Jangan bilang "Sebagai AI..." atau "Sebagai asisten virtual..."
+- Jangan terlalu banyak emoji berturut-turut
+- Jangan pakai template kaku atau copy-paste
+- Jangan ulangi "tentu saja" atau "tentunya" berulang kali`;
       } else if (businessType === "TRAVEL_AGENCY") {
         return `You are acting as a customer support assistant for ${businessName}, an Indonesian travel agency. You are chatting with customers who need help with booking tours, checking availability, managing bookings, payment, and other travel-related questions.
 
@@ -676,6 +698,17 @@ export async function POST(req: Request) {
   - Customers are primarily Indonesian, so be culturally aware and use appropriate greetings
   - Help customers with booking day tours, tour packages, and travel services
   - Guide them through the booking process, payment options (VA, GoPay, QRIS, OVO, ShopeePay), and booking management`;
+      } else if (businessType === "ECOMMERCE") {
+        return `You are acting as a customer support assistant for ${businessName}, an Indonesian e-commerce store. You are chatting with customers who need help with product inquiries, orders, shipping, returns, and other shopping-related questions.
+
+  **Important Guidelines:**
+  - Respond in the SAME LANGUAGE as the customer's question (Indonesian or English)
+  - Be friendly, helpful, and enthusiastic with a warm tone suitable for online shopping
+  - Customers are primarily Indonesian, so be culturally aware and use appropriate greetings like "Kak", "Kak/Bu/Pak"
+  - Help customers with product availability, pricing, ordering process, shipping, and returns
+  - Guide them through the order process, payment options (transfer bank, GoPay, QRIS, OVO, ShopeePay, COD), and delivery tracking
+  - Do NOT offer medical advice, clinic bookings, or healthcare services — this is purely a retail store
+  - Do NOT use booking tools (list_services, create_booking, etc.) — focus on shopping assistance`;
       }
     }
 
@@ -780,8 +813,8 @@ export async function POST(req: Request) {
     day: '2-digit',
   }).format(tomorrow);
 
-  const systemPrompt = `${getSystemPromptIntro()}
-
+  // Dynamic per-request content: date/time and RAG context change every request — not cached
+  const dynamicSystemPart = `
   **📅 CURRENT DATE & TIME (CRITICAL - USE THIS FOR ALL DATE CALCULATIONS):**
   - Hari ini: ${jakartaTime} (Waktu Jakarta/WIB)
   - Tanggal hari ini (ISO format): ${todayISO}
@@ -794,6 +827,14 @@ export async function POST(req: Request) {
   - When customer says "lusa" → Add 2 days to today
   - Always convert relative dates (besok, lusa, minggu depan) to actual dates
   - For booking tools, always use ISO format: YYYY-MM-DD
+
+  **Knowledge Base Context:**
+  To help you answer the customer's question, we have retrieved the following information from our knowledge base. Use this information to provide accurate answers.
+  NOTE: The knowledge base may be in Indonesian. If the customer writes in English, you MUST translate the information to English in your response.
+  ${isRagWorking ? `${retrievedContext}` : "No relevant information found in our knowledge base for this query."}`;
+
+  // Stable system prompt: cached via prompt caching — saves ~90% on input token cost for this block
+  const systemPrompt = `${getSystemPromptIntro()}
 
   ═══════════════════════════════════════════════════════════════════════════
   🌐 CRITICAL: LANGUAGE MATCHING RULE (HIGHEST PRIORITY) 🌐
@@ -818,11 +859,6 @@ export async function POST(req: Request) {
   ✅ CORRECT: Always match the customer's language
 
   ═══════════════════════════════════════════════════════════════════════════
-
-  **Knowledge Base Context:**
-  To help you answer the customer's question, we have retrieved the following information from our knowledge base. Use this information to provide accurate answers.
-  NOTE: The knowledge base may be in Indonesian. If the customer writes in English, you MUST translate the information to English in your response.
-  ${isRagWorking ? `${retrievedContext}` : "No relevant information found in our knowledge base for this query."}
 
   **Response Rules:**
   - ONLY use information from the knowledge base provided above. Do not make up information about policies, prices, or procedures.
@@ -1383,6 +1419,11 @@ export async function POST(req: Request) {
   }
   `
 
+  const systemBlocks = [
+    { type: 'text' as const, text: systemPrompt, cache_control: { type: 'ephemeral' as const } },
+    { type: 'text' as const, text: dynamicSystemPart },
+  ];
+
   function sanitizeAndParseJSON(jsonString: string) {
     // Helper function for robust JSON parsing
     const robustJSONParse = (str: string): any => {
@@ -1555,9 +1596,9 @@ export async function POST(req: Request) {
             model: model,
             max_tokens: dynamicMaxTokens, // ⬅️ Dynamic based on query type
             messages: anthropicMessages,
-            system: systemPrompt,
+            system: systemBlocks,
             tools: BOT_TOOLS,
-            temperature: 0.3,
+            temperature: businessContext?.businessType === 'BEAUTY_CLINIC' ? 0.5 : 0.3,
           });
         } catch (apiError: any) {
           throw new ClaudeAPIError(
@@ -1630,7 +1671,7 @@ export async function POST(req: Request) {
               model: model,
               max_tokens: 1000, // Enough for tool chaining responses
               messages: currentMessages,
-              system: systemPrompt,
+              system: systemBlocks,
               tools: BOT_TOOLS,
               temperature: 0.3,
             });
@@ -1922,6 +1963,64 @@ export async function POST(req: Request) {
               responseWithId.redirect_to_agent.reason || "User requested human assistance"
             );
             console.log("✅ Conversation status changed to REDIRECTED");
+
+            // Auto-create handoff record for admin panel visibility
+            const existingHandoff = await prisma.conversationHandoff.findUnique({
+              where: { conversationId: conversationIdForSave }
+            });
+            if (!existingHandoff) {
+              const mood = validatedResponse.user_mood;
+              const priority = ['angry', 'frustrated'].includes(mood) ? 3
+                             : ['worried', 'concerned', 'negative'].includes(mood) ? 2 : 1;
+              const handoff = await prisma.conversationHandoff.create({
+                data: {
+                  conversationId: conversationIdForSave,
+                  priority,
+                  handoffReason: responseWithId.redirect_to_agent?.reason || 'Customer needs assistance',
+                }
+              });
+
+              // Notify all active admins in-app
+              const admins = await prisma.adminUser.findMany({ where: { isActive: true } });
+              if (admins.length > 0) {
+                await prisma.notification.createMany({
+                  data: admins.map(admin => ({
+                    agentId: admin.id,
+                    type: 'escalation_alert',
+                    title: mood === 'angry' ? '🚨 Customer MARAH - Perlu Penanganan Segera'
+                         : mood === 'frustrated' ? '⚠️ Customer Frustrasi - Eskalasi AI'
+                         : '⚡ Eskalasi: Customer Perlu Bantuan',
+                    message: JSON.stringify({
+                      handoffId: handoff.id,
+                      reason: handoff.handoffReason,
+                      mood,
+                      conversationId: conversationIdForSave,
+                      priority,
+                    }),
+                    relatedConversationId: conversationIdForSave,
+                    relatedHandoffId: handoff.id,
+                  }))
+                });
+              }
+
+              // Broadcast SSE event to admin panel
+              try {
+                const { broadcastSSEEvent } = await import('@/app/api/admin/sse/route');
+                broadcastSSEEvent({
+                  type: 'escalation',
+                  payload: {
+                    handoffId: handoff.id,
+                    conversationId: conversationIdForSave,
+                    reason: handoff.handoffReason,
+                    mood,
+                    priority,
+                    timestamp: new Date().toISOString(),
+                  },
+                });
+              } catch {
+                // SSE broadcast is non-critical
+              }
+            }
 
             console.log("📤 Sending notification to agent...");
             const { emailSent, whatsappSent } = await notifyAgent(conversationIdForSave);
