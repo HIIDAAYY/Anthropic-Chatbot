@@ -5,12 +5,38 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, MessageSquare, ArrowLeftRight, CheckCircle, TrendingUp } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import { useSidebar } from '../components/SidebarContext';
+import { useActivity } from '../components/ActivityContext';
+
+function useCountUp(target: number, duration = 1200): number {
+    const [value, setValue] = useState(0);
+    useEffect(() => {
+        if (!target) return;
+        const start = Date.now();
+        const tick = () => {
+            const elapsed = Date.now() - start;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3); // cubic ease-out
+            setValue(Math.round(target * eased));
+            if (progress < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+    }, [target, duration]);
+    return value;
+}
 
 export default function DashboardPage() {
     const { toggle } = useSidebar();
     const [metrics, setMetrics] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [period, setPeriod] = useState('today');
+    const [latestBooking, setLatestBooking] = useState<any>(null);
+
+    const { activity } = useActivity();
+
+    useEffect(() => {
+        const booking = activity.find(a => a.type === 'booking_created');
+        if (booking) setLatestBooking(booking.payload);
+    }, [activity]);
 
     useEffect(() => {
         fetchMetrics();
@@ -29,31 +55,36 @@ export default function DashboardPage() {
         }
     };
 
+    const animTotalConversations = useCountUp(metrics?.totalConversations ?? 0);
+    const animActiveHandoffs = useCountUp(metrics?.activeHandoffs ?? 0);
+    const animAiResolutionRate = useCountUp(metrics?.aiResolutionRate ?? 0);
+    const animAvgIntentScore = useCountUp(metrics?.avgIntentScore ?? 0);
+
     const stats = [
         {
             title: 'Total Percakapan',
-            value: metrics?.totalConversations ?? 0,
+            value: animTotalConversations,
             sub: 'Pada periode terpilih',
             icon: MessageSquare,
             iconBg: 'bg-violet-100 text-violet-600',
         },
         {
             title: 'Handoff Aktif',
-            value: metrics?.activeHandoffs ?? 0,
+            value: animActiveHandoffs,
             sub: 'Menunggu tindakan',
             icon: ArrowLeftRight,
             iconBg: 'bg-amber-100 text-amber-600',
         },
         {
             title: 'AI Resolution Rate',
-            value: `${metrics?.aiResolutionRate ?? 0}%`,
+            value: `${animAiResolutionRate}%`,
             sub: 'Tanpa bantuan manusia',
             icon: CheckCircle,
             iconBg: 'bg-emerald-100 text-emerald-600',
         },
         {
             title: 'Avg Intent Score',
-            value: metrics?.avgIntentScore ?? 0,
+            value: animAvgIntentScore,
             sub: 'Potensi penjualan',
             icon: TrendingUp,
             iconBg: 'bg-indigo-100 text-indigo-600',
@@ -86,6 +117,29 @@ export default function DashboardPage() {
                 </div>
             ) : (
                 <>
+                    {latestBooking && (
+                        <div className="mb-4 bg-emerald-50 border-2 border-emerald-400 rounded-2xl p-4 flex items-center justify-between animate-pulse">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center shrink-0">
+                                    <span className="text-white text-lg font-bold">✓</span>
+                                </div>
+                                <div>
+                                    <p className="font-bold text-emerald-800">Booking Baru Berhasil!</p>
+                                    <p className="text-sm text-emerald-600">
+                                        {latestBooking.bookingNumber} — {latestBooking.serviceName} — {latestBooking.customerName}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setLatestBooking(null)}
+                                className="text-emerald-400 hover:text-emerald-600 text-xl font-bold ml-4"
+                                aria-label="Tutup"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    )}
+
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
                         {stats.map((s) => {
                             const Icon = s.icon;
@@ -128,13 +182,39 @@ export default function DashboardPage() {
                                 <p className="text-xs text-gray-500">Update terkini sistem</p>
                             </div>
                             <div className="space-y-4">
-                                <div className="flex items-start gap-3">
-                                    <div className="h-2 w-2 rounded-full bg-emerald-500 mt-2 shrink-0" />
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-900">System Ready</p>
-                                        <p className="text-xs text-gray-500">Dashboard telah dimuat</p>
+                                {activity.length === 0 ? (
+                                    <div className="flex items-start gap-3">
+                                        <div className="h-2 w-2 rounded-full bg-emerald-500 mt-2 shrink-0" />
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-900">System Ready</p>
+                                            <p className="text-xs text-gray-500">Dashboard siap — menunggu aktivitas</p>
+                                        </div>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {activity.slice(0, 8).map((item) => {
+                                            const configs: Record<string, { dot: string; icon: string; label: string | ((p: any) => string) }> = {
+                                                new_chat: { dot: 'bg-violet-500', icon: '💬', label: 'Pelanggan baru mulai chat' },
+                                                booking_created: { dot: 'bg-emerald-500', icon: '📅', label: (p: any) => `Booking: ${p.bookingNumber} — ${p.serviceName}` },
+                                                escalation: { dot: 'bg-red-500', icon: '🚨', label: (p: any) => `Eskalasi: customer ${p.mood}` },
+                                            };
+                                            const cfg = configs[item.type];
+                                            if (!cfg) return null;
+                                            const label = typeof cfg.label === 'function' ? cfg.label(item.payload) : cfg.label;
+                                            return (
+                                                <div key={item.id} className="flex items-start gap-3">
+                                                    <div className={`h-2 w-2 rounded-full ${cfg.dot} mt-2 shrink-0`} />
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-900">{cfg.icon} {label}</p>
+                                                        <p className="text-xs text-gray-500">
+                                                            {new Date(item.payload?.timestamp || Date.now()).toLocaleTimeString('id-ID')}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
