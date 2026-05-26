@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from './components/Sidebar';
 import { SidebarContext } from './components/SidebarContext';
+import { useAdminSSE, SSEEvent } from './hooks/useAdminSSE';
+import EscalationAlertModal, { EscalationAlert } from './components/EscalationAlertModal';
+import { ActivityContext, ActivityItem } from './components/ActivityContext';
 
 export default function AdminLayout({
     children,
@@ -12,8 +15,20 @@ export default function AdminLayout({
 }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [authChecked, setAuthChecked] = useState(false);
+    const [escalationAlert, setEscalationAlert] = useState<EscalationAlert | null>(null);
+    const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
     const router = useRouter();
     const pathname = usePathname();
+
+    useAdminSSE((event: SSEEvent) => {
+        if (event.type === 'escalation') {
+            setEscalationAlert(event.payload as EscalationAlert);
+        }
+        setRecentActivity(prev => [
+            { id: Date.now(), type: event.type, payload: event.payload },
+            ...prev.slice(0, 19),
+        ]);
+    });
 
     useEffect(() => {
         if (pathname === '/admin/login') {
@@ -42,21 +57,27 @@ export default function AdminLayout({
     }
 
     return (
-        <SidebarContext.Provider
-            value={{
-                toggle: () => setSidebarOpen((v) => !v),
-                isOpen: sidebarOpen,
-            }}
-        >
-            <div className="min-h-screen bg-gray-50 flex">
-                <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+        <ActivityContext.Provider value={{ activity: recentActivity }}>
+            <SidebarContext.Provider
+                value={{
+                    toggle: () => setSidebarOpen((v) => !v),
+                    isOpen: sidebarOpen,
+                }}
+            >
+                <div className="min-h-screen bg-gray-50 flex">
+                    <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
 
-                <div className="flex-1 flex flex-col min-w-0">
-                    <main className="flex-1 p-6 md:p-8 overflow-y-auto">
-                        {children}
-                    </main>
+                    <div className="flex-1 flex flex-col min-w-0">
+                        <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+                            {children}
+                        </main>
+                    </div>
                 </div>
-            </div>
-        </SidebarContext.Provider>
+                <EscalationAlertModal
+                    alert={escalationAlert}
+                    onDismiss={() => setEscalationAlert(null)}
+                />
+            </SidebarContext.Provider>
+        </ActivityContext.Provider>
     );
 }
