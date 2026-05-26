@@ -471,7 +471,7 @@ export async function executeBotAction(action: BotAction): Promise<any> {
             error: "customerId, businessId, serviceId, date, time, customerName, dan customerPhone diperlukan"
           };
         }
-        return await createBooking({
+        const result = await createBooking({
           customerId,
           businessId,
           serviceId,
@@ -482,6 +482,28 @@ export async function executeBotAction(action: BotAction): Promise<any> {
           customerEmail,
           notes,
         });
+
+        // Broadcast SSE event after successful booking creation
+        if (result.success && result.booking) {
+          try {
+            const { broadcastSSEEvent } = await import('@/app/api/admin/sse/route');
+            broadcastSSEEvent({
+              type: 'booking_created',
+              payload: {
+                bookingNumber: result.booking.bookingNumber,
+                serviceName: result.booking.service?.name,
+                customerName: result.booking.customerName,
+                bookingDate: result.booking.bookingDate,
+                totalAmount: result.booking.totalAmount,
+                timestamp: new Date().toISOString(),
+              },
+            });
+          } catch {
+            // SSE broadcast is non-critical
+          }
+        }
+
+        return result;
 
       case "get_booking_details":
         if (!customerId || !bookingNumber) {
