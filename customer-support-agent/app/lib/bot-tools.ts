@@ -486,7 +486,7 @@ export async function executeBotAction(action: BotAction): Promise<any> {
         // Broadcast SSE event after successful booking creation
         if (result.success && result.booking) {
           try {
-            const { broadcastSSEEvent } = await import('@/app/api/admin/sse/route');
+            const { broadcastSSEEvent } = await import('@/app/lib/sse-bus');
             broadcastSSEEvent({
               type: 'booking_created',
               payload: {

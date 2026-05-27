@@ -314,7 +314,7 @@ export async function POST(req: Request) {
         conversation = await createConversation(customer.id);
         console.log("📝 Created new conversation early for sales tracking");
         try {
-          const { broadcastSSEEvent } = await import('@/app/api/admin/sse/route');
+          const { broadcastSSEEvent } = await import('@/app/lib/sse-bus');
           broadcastSSEEvent({
             type: 'new_chat',
             payload: { conversationId: conversation.id, timestamp: new Date().toISOString() },
@@ -2005,7 +2005,7 @@ Kamu berbicara seperti teman yang hangat dan peduli — bukan mesin CS yang kaku
 
               // Broadcast SSE event to admin panel
               try {
-                const { broadcastSSEEvent } = await import('@/app/api/admin/sse/route');
+                const { broadcastSSEEvent } = await import('@/app/lib/sse-bus');
                 broadcastSSEEvent({
                   type: 'escalation',
                   payload: {
