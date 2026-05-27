@@ -270,9 +270,9 @@ export async function createPaymentLink(
       enabled_payments: enabledPayments,
       ...bankTransferConfig,
       callbacks: {
-        finish: `${process.env.NEXT_PUBLIC_APP_URL}/booking/${bookingNumber}?payment=success`,
-        error: `${process.env.NEXT_PUBLIC_APP_URL}/booking/${bookingNumber}?payment=error`,
-        pending: `${process.env.NEXT_PUBLIC_APP_URL}/booking/${bookingNumber}?payment=pending`,
+        finish: `${process.env.NEXT_PUBLIC_BASE_URL}/booking/${bookingNumber}?payment=success`,
+        error: `${process.env.NEXT_PUBLIC_BASE_URL}/booking/${bookingNumber}?payment=error`,
+        pending: `${process.env.NEXT_PUBLIC_BASE_URL}/booking/${bookingNumber}?payment=pending`,
       },
     };
 

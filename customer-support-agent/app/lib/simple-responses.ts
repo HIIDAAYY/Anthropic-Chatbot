@@ -49,6 +49,69 @@ const SIMPLE_PATTERNS: Record<string, SimpleResponse> = {
       'Info klinik?'
     ],
   },
+
+  // Affirmations
+  'ya|iya|yep|yap|yes': {
+    response: 'Siap! Ada yang bisa saya bantu? 😊',
+    mood: 'neutral',
+    suggestedQuestions: ['Info layanan kami?', 'Cara booking?', 'Jam operasional?'],
+  },
+
+  // Negatives
+  'tidak|nggak|ngga|no|nope': {
+    response: 'Baik! Jika ada pertanyaan lain, jangan ragu untuk tanya ya 😊',
+    mood: 'neutral',
+    suggestedQuestions: [],
+  },
+
+  // Help requests
+  'bantuan|tolong|help': {
+    response: 'Halo! Saya siap bantu. Silakan sampaikan pertanyaannya ya! 😊',
+    mood: 'positive',
+    suggestedQuestions: ['Info harga layanan?', 'Cara melakukan booking?', 'Hubungi agen kami?'],
+  },
+
+  // Info requests
+  'info|informasi': {
+    response: 'Halo! Info apa yang kamu butuhkan? 😊',
+    mood: 'neutral',
+    suggestedQuestions: ['Info harga treatment?', 'Info jam operasional?', 'Info cara booking?'],
+  },
+
+  // Confused/unclear
+  'hah|huh|apaan': {
+    response: 'Maaf, bisa dijelaskan lebih lanjut pertanyaannya? 😊',
+    mood: 'neutral',
+    suggestedQuestions: ['Tanya tentang layanan?', 'Tanya tentang booking?', 'Tanya tentang harga?'],
+  },
+
+  // Apology
+  'maaf|sorry|sori': {
+    response: 'Tidak apa-apa! Ada yang bisa saya bantu? 😊',
+    mood: 'positive',
+    suggestedQuestions: ['Info layanan kami?', 'Cara booking?', 'Hubungi agen?'],
+  },
+
+  // Time-of-day greetings
+  'selamat pagi|selamat siang|selamat sore|selamat malam': {
+    response: 'Halo, selamat datang! Ada yang bisa saya bantu? 😊',
+    mood: 'positive',
+    suggestedQuestions: ['Info layanan kami?', 'Cara booking treatment?', 'Jam operasional?'],
+  },
+
+  // Compliments
+  'bagus|keren|mantap|luar biasa|top': {
+    response: 'Makasih banyak! 😊 Ada yang bisa saya bantu lagi?',
+    mood: 'positive',
+    suggestedQuestions: ['Info treatment lainnya?', 'Booking layanan?', 'Promo terbaru?'],
+  },
+
+  // Wait/hold
+  'tunggu|wait|sebentar': {
+    response: 'Siap, saya tunggu! Silakan sampaikan pertanyaannya ya 😊',
+    mood: 'neutral',
+    suggestedQuestions: [],
+  },
 };
 
 /**

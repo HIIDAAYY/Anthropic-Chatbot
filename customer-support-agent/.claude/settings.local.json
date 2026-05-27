@@ -15,7 +15,9 @@
       "Bash(npx tsx:*)",
       "Bash(npx prisma migrate:*)",
       "Bash(npx dotenv:*)",
-      "Bash(set DATABASE_URL=postgresql://dummy)"
+      "Bash(set DATABASE_URL=postgresql://dummy)",
+      "Bash(npm run *)",
+      "Bash(node -e ' *)"
     ],
     "deny": [],
     "ask": []
