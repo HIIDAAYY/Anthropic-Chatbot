@@ -41,6 +41,26 @@ export const prisma = globalForPrisma.prisma || prismaClient;
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
+// 🔌 A3: Eagerly connect the Prisma engine at module load. Without this, the
+// engine connects lazily on the first query — so a cold start or a concurrent
+// burst of requests races into "Engine is not yet connected" errors, and the
+// first chat pays multi-second cold-connect latency on its critical path.
+// Best-effort: failures fall back to lazy connection and are only logged.
+{
+  const g = globalForPrisma as unknown as { __prismaConnecting?: boolean };
+  if (!g.__prismaConnecting) {
+    g.__prismaConnecting = true;
+    prisma
+      .$connect()
+      .then(() => logger.info('Prisma engine connected (eager warm-up)'))
+      .catch((e: unknown) =>
+        logger.warn('Prisma eager $connect failed (will connect lazily)', {
+          error: (e as Error)?.message,
+        }),
+      );
+  }
+}
+
 // Session timeout: 30 minutes (in milliseconds)
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 

@@ -35,6 +35,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# whatsapp-web.js QR-scan demo session (do NOT commit — contains WhatsApp auth)
+.wwebjs_auth/
+.wwebjs_cache/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
@@ -70,3 +74,7 @@ lerna-debug.log*
 Thumbs.db
 .AppleDouble
 .env*.local
+
+# test/demo artifacts (Claude session)
+.playwright-mcp/
+*-test.png

@@ -181,6 +181,22 @@ const MessageContent = ({
       }
     }
 
+    // Hardened fallback: strip a trailing response-envelope JSON block even when
+    // it fails to JSON.parse (truncated / bad escaping) or is wrapped in a ```json
+    // fence — these are the cases that leak raw `{"thinking":...,"response":...}`
+    // into the chat. A real answer never ends with a brace block carrying these
+    // envelope keys, so the signal is safe.
+    const trailingEnvelope = result.match(
+      /\n+\s*(?:```(?:json)?\s*\n?)?\{[\s\S]*?"(?:thinking|response|user_mood)"[\s\S]*$/i,
+    );
+    if (trailingEnvelope && typeof trailingEnvelope.index === "number") {
+      const stripped = result.slice(0, trailingEnvelope.index).trim();
+      if (stripped.length > 0) {
+        console.log("🔧 Stripped trailing response-envelope JSON (hardened)");
+        result = stripped;
+      }
+    }
+
     // Check if the entire content is JSON with a 'response' field
     if (result.startsWith('{')) {
       try {
@@ -191,7 +207,18 @@ const MessageContent = ({
           return extractResponse(innerParsed.response);
         }
       } catch (e) {
-        // Not valid JSON, return as-is
+        // Malformed JSON object (truncated / bad escaping) — regex-extract the
+        // "response" value so we NEVER render the raw envelope to the user.
+        const m = result.match(/"response"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+        if (m) {
+          const unescaped = m[1]
+            .replace(/\\n/g, '\n')
+            .replace(/\\"/g, '"')
+            .replace(/\\t/g, '\t')
+            .replace(/\\\\/g, '\\');
+          console.log("🔧 Regex-extracted response from malformed JSON");
+          return extractResponse(unescaped);
+        }
       }
     }
 
@@ -233,22 +260,23 @@ const MessageContent = ({
           </>
         );
       } catch (error) {
-        // If parsing fails, treat as plain text
+        // Parsing the whole content failed — still run it through extractResponse
+        // so a malformed/fenced envelope is cleaned instead of leaking raw JSON.
         console.error("❌ MessageContent - JSON parse failed:", error);
-        console.error("❌ MessageContent - Content that failed to parse:", content);
         return (
           <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeHighlight]}>
-            {content}
+            {extractResponse(content)}
           </ReactMarkdown>
         );
       }
     }
 
-    // Content is plain text, render directly
+    // Plain text (or a ```json-fenced / trailing envelope that didn't start with
+    // '{'). Run through extractResponse so any embedded envelope is stripped.
     console.log("📝 MessageContent - Rendering plain text response");
     return (
       <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeHighlight]}>
-        {content}
+        {extractResponse(content)}
       </ReactMarkdown>
     );
   }

@@ -136,8 +136,46 @@ function getClinicNameById(clinicId: string): string {
     "sample-spkk": "Klinik Spesialis Kulit & Kelamin (SpKK)",
     "sample-spgk": "Klinik Spesialis Gizi Klinik (SpGK)",
     "sample-hijab-shop": "UrbanStyle Hijab Shop",
+    "vorta-clinic": "Vorta Beauty Clinic", // DEMO (temporary)
+    // DEMO (temporary) — 5 klinik riset
+    "ira-skincare": "dr. Ira Skin Care & Slimming",
+    "beauty-palace": "Beauty Palace Aesthetic & Hair Transplant Center",
+    "drkhe-co": "dr. Khé & Co",
+    "estetika-dental": "Estetika Dental Clinic",
+    "eva-mulia": "Eva Mulia Clinic",
+    "nanoglow": "NanoGlow Aesthetic Clinic",
+    "e3a-emily": "E3A Emily Aesthetics & Anti Aging Clinic",
+    "dc-beauty": "DC Beauty Clinic",
+    "dr-yustini": "Klinik dr. Yustini",
+    "farla": "Farla Aesthetic Clinic",
   };
   return clinicMap[clinicId] || "Klinik Kecantikan & Gigi (Beauty & Dental Clinic)";
+}
+
+// Kontak per-klinik untuk eskalasi (komplain/medis/refund). Tanpa ini, bot
+// memakai nomor demo "Glow" yang di-hardcode di system prompt untuk SEMUA klinik.
+// Klinik yang tak terdaftar tetap memakai default lama (perilaku tak berubah).
+function getClinicContactById(clinicId: string): { whatsapp: string; emergency: string } {
+  const contactMap: Record<string, { whatsapp: string; emergency: string }> = {
+    "vorta-clinic": { whatsapp: "+62 811-8883-318", emergency: "+62 811-8883-318" },
+    "ira-skincare": { whatsapp: "0821-3191-6900", emergency: "0821-3191-6900" },
+    "beauty-palace": { whatsapp: "+62 852-8088-8118", emergency: "+62 852-8088-8118" },
+    "drkhe-co": { whatsapp: "0813-8748-6516", emergency: "0813-8748-6516" },
+    "estetika-dental": { whatsapp: "0812-1263-1323", emergency: "0812-1263-1323" },
+    "eva-mulia": { whatsapp: "0878-4851-6888", emergency: "0878-4851-6888" },
+    "beautylosophy-clinic": { whatsapp: "+62 896-0807-6000", emergency: "+62 896-0807-6000" },
+    "nanoglow": { whatsapp: "0851-1132-0929", emergency: "0851-1132-0929" },
+    "e3a-emily": { whatsapp: "0817-9988-322", emergency: "0817-9988-322" },
+    "dc-beauty": { whatsapp: "0816-971-169", emergency: "0816-971-169" },
+    "dr-yustini": { whatsapp: "0812-8045-6625", emergency: "0812-8045-6625" },
+    "farla": { whatsapp: "0812-1108-5805", emergency: "0812-1108-5805" },
+  };
+  return (
+    contactMap[clinicId] || {
+      whatsapp: "+62 812-8888-5555",
+      emergency: "+62 811-9999-5555",
+    }
+  );
 }
 
 // Helper function to log timestamps for performance measurement
@@ -215,8 +253,20 @@ export async function POST(req: Request) {
   console.log("📝 Latest Query:", latestMessage);
   measureTime("User Input Received");
 
-  // 💾 CHECK CACHE: Try to get cached response first
-  const cachedResponse = responseCache.get(clinicId, latestMessage);
+  // B2: The response cache keys on clinicId + question text only (no conversation
+  // context), so a short/back-reference follow-up like "berapa harganya?" would
+  // return a frozen, wrong-context answer for an hour. Detect follow-ups and skip
+  // the cache for them (full self-contained questions still cache safely).
+  const fuWordCount = latestMessage.trim().split(/\s+/).filter(Boolean).length;
+  // <=2 (not <=3): 3-word questions like "Sistem poinnya gimana?" / "Jam buka
+  // vorta?" are standalone and must NOT be diluted with the previous message.
+  const isFollowUpQuery =
+    fuWordCount <= 2 || /\b(itu|tadi|tersebut|tsb|yg tadi)\b/i.test(latestMessage);
+
+  // 💾 CHECK CACHE: Try to get cached response first (skip for follow-ups)
+  const cachedResponse = isFollowUpQuery
+    ? null
+    : responseCache.get(clinicId, latestMessage);
   if (cachedResponse) {
     console.log('💰 Using cached response - NO API CALL');
 
@@ -304,29 +354,36 @@ export async function POST(req: Request) {
   let activeConversationId: string | undefined;
 
   if (sessionId) {
-    try {
-      const customerIdentifier = sessionId ? `web_${sessionId}` : "081234567890";
-      const customer = await getOrCreateCustomer(customerIdentifier);
-      customerId = customer.id; // Set customerId for tool execution
+    // A2: Run conversation setup in the BACKGROUND instead of blocking the request
+    // (~4s of sequential Neon round-trips on the critical path). Tool execution
+    // (getOrCreateCustomer fallback at the tool loop) and the background save block
+    // both fall back gracefully if this hasn't resolved yet; by the time Claude
+    // finishes (~6s+), it almost always has. Best-effort, never blocks the reply.
+    void (async () => {
+      try {
+        const customerIdentifier = sessionId ? `web_${sessionId}` : "081234567890";
+        const customer = await getOrCreateCustomer(customerIdentifier);
+        customerId = customer.id; // Set customerId for tool execution
 
-      let conversation = await getActiveConversation(customer.id);
-      if (!conversation) {
-        conversation = await createConversation(customer.id);
-        console.log("📝 Created new conversation early for sales tracking");
-        try {
-          const { broadcastSSEEvent } = await import('@/app/lib/sse-bus');
-          broadcastSSEEvent({
-            type: 'new_chat',
-            payload: { conversationId: conversation.id, timestamp: new Date().toISOString() },
-          });
-        } catch {}
+        let conversation = await getActiveConversation(customer.id);
+        if (!conversation) {
+          conversation = await createConversation(customer.id);
+          console.log("📝 Created new conversation early for sales tracking");
+          try {
+            const { broadcastSSEEvent } = await import('@/app/lib/sse-bus');
+            broadcastSSEEvent({
+              type: 'new_chat',
+              payload: { conversationId: conversation.id, timestamp: new Date().toISOString() },
+            });
+          } catch {}
+        }
+
+        activeConversationId = conversation.id;
+        console.log(`🔑 Active conversationId for tools: ${activeConversationId}`);
+      } catch (error) {
+        console.error("❌ Background conversation setup failed:", error);
       }
-
-      activeConversationId = conversation.id;
-      console.log(`🔑 Active conversationId for tools: ${activeConversationId}`);
-    } catch (error) {
-      console.error("❌ Failed to create conversation early:", error);
-    }
+    })();
   }
 
   // Auto-detect knowledge base if not specified
@@ -405,6 +462,13 @@ export async function POST(req: Request) {
           "glow-clinic": {
             businessId: glowClinic.id,
             businessName: "Klinik Glow Aesthetics",
+            businessType: "BEAUTY_CLINIC",
+            settings: glowClinic.settings,
+          },
+          "vorta-clinic": {
+            // DEMO (temporary) — maps to Glow's DB record for booking ops only
+            businessId: glowClinic.id,
+            businessName: "Vorta Beauty Clinic",
             businessType: "BEAUTY_CLINIC",
             settings: glowClinic.settings,
           },
@@ -564,7 +628,10 @@ export async function POST(req: Request) {
         console.log(`🏥 Using hardcoded fallback businessContext for: ${businessContext.businessName} (${detectedType})`);
       }
 
-      await prisma.$disconnect();
+      // NOTE: Do NOT $disconnect() here. `prisma` is a shared singleton; tearing
+      // down its connection pool on every request breaks any other in-flight
+      // (concurrent) request mid-query with "Engine is not yet connected". The
+      // client stays connected for the process lifetime by design.
     } catch (error) {
       console.error("Error auto-detecting business:", error);
       // Even on error, set fallback businessContext so service list is included in prompt
@@ -604,16 +671,30 @@ export async function POST(req: Request) {
     console.log(`🔍 Initiating RAG retrieval from ${ragSource} for query:`, latestMessage);
     measureTime("RAG Start");
 
-    // Build contextual query from last 3 user messages for better RAG retrieval
-    const contextualQuery = messages
-      .slice(-5) // Get last 5 messages
-      .filter((m: any) => m.role === 'user') // Only user messages
-      .map((m: any) => m.content)
-      .join(' | '); // Join with separator
+    // Build the RAG query. Concatenating several past user messages dilutes the
+    // embedding on topic switches (the current question gets buried under prior
+    // unrelated ones), which silently drops the right chunk out of topK. So we
+    // default to the LATEST user message alone, and only prepend the previous
+    // user message when the latest looks like a short follow-up that genuinely
+    // needs prior context (e.g., "berapa harganya?", "itu gimana?").
+    const userContents = messages
+      .filter((m: any) => m.role === 'user')
+      .map((m: any) => (m.content || '').toString());
+    const latestUserMsg = userContents[userContents.length - 1] || latestMessage;
+    const prevUserMsg = userContents[userContents.length - 2] || '';
 
-    // Use contextual query if available, otherwise use latest message
-    const queryForRAG = contextualQuery || latestMessage;
-    console.log('🔍 Contextual query for RAG (first 150 chars):', queryForRAG.slice(0, 150));
+    const wordCount = latestUserMsg.trim().split(/\s+/).filter(Boolean).length;
+    const hasBackReference = /\b(itu|tadi|tersebut|tsb|yg tadi)\b/i.test(latestUserMsg);
+    // <=2 (not <=3): keep 3-word standalone questions ("Sistem poinnya gimana?")
+    // searching on their own topic instead of being prepended with the prev msg.
+    const isFollowUp = wordCount <= 2 || hasBackReference;
+
+    const queryForRAG =
+      isFollowUp && prevUserMsg ? `${prevUserMsg} | ${latestUserMsg}` : latestUserMsg;
+    console.log(
+      `🔍 RAG query (${isFollowUp ? 'follow-up: +prev' : 'standalone: latest only'}):`,
+      queryForRAG.slice(0, 150),
+    );
 
     // Retry RAG retrieval with exponential backoff (max 2 retries)
     const result = await retryWithBackoff(
@@ -665,6 +746,52 @@ export async function POST(req: Request) {
     The available categories are: ${categoryListString}
     If multiple categories match, include multiple category IDs. If no categories match, return an empty array.
   `
+    : "";
+
+  // Resolve clinic identity + contact ONCE at this scope so BOTH the system
+  // prompt intro AND the escalation examples further below can reuse them.
+  // (Previously these lived inside getSystemPromptIntro and were out of scope
+  // for the escalation examples → ReferenceError.)
+  let activeClinicId = "";
+  if (
+    typeof knowledgeBaseId === "object" &&
+    knowledgeBaseId !== null &&
+    "clinicId" in knowledgeBaseId &&
+    knowledgeBaseId.clinicId
+  ) {
+    activeClinicId = knowledgeBaseId.clinicId as string;
+  }
+  const clinicName = getClinicNameById(activeClinicId);
+  const clinicContact = getClinicContactById(activeClinicId);
+  const clinicWhatsApp = clinicContact.whatsapp;
+  const clinicEmergency = clinicContact.emergency;
+  // DEMO clinics get a STRICT scope guard so the bot never invents another
+  // clinic's identity/info (fixes the "Glow Aesthetics" leak) and stays on
+  // topic. Other clinics keep their existing behavior untouched.
+  const STRICT_SCOPE_CLINICS = new Set([
+    "vorta-clinic",
+    "ira-skincare",
+    "beauty-palace",
+    "drkhe-co",
+    "estetika-dental",
+    "eva-mulia",
+    "beautylosophy-clinic",
+    "nanoglow",
+    "e3a-emily",
+    "dc-beauty",
+    "dr-yustini",
+    "farla",
+  ]);
+  const scopeGuard = STRICT_SCOPE_CLINICS.has(activeClinicId)
+    ? `
+
+  **STRICT SCOPE — ${clinicName} ONLY:**
+  - You ONLY answer questions about ${clinicName} (its treatments, prices, schedule, location, promos, and policies).
+  - If asked about any OTHER clinic/brand, or anything unrelated to ${clinicName} (general knowledge, other businesses, coding, news, etc.), DO NOT answer it. Politely redirect instead:
+    "Maaf Kak, saya asisten khusus ${clinicName}, jadi saya hanya bisa bantu seputar layanan, harga, jadwal, dan info ${clinicName} ya 😊 Ada yang ingin Kakak tanyakan?"
+  - NEVER mention, name, compare with, or invent any OTHER clinic/brand, address, or phone number. You are ${clinicName} and nothing else.
+  - Base every factual answer ONLY on the provided ${clinicName} knowledge base context — if the answer is not in that context, say you'll have the team follow up rather than guessing.
+  - The ONLY contact number you may give for appointments/complaints/medical concerns is the official ${clinicName} WhatsApp: ${clinicWhatsApp}.`
     : "";
 
   // Change the system prompt based on knowledge base or business context
@@ -720,18 +847,9 @@ Kamu berbicara seperti teman yang hangat dan peduli — bukan mesin CS yang kaku
         "kb" in knowledgeBaseId &&
         knowledgeBaseId.kb === "clinic")
     ) {
-      // Get clinic-specific name
-      let clinicName = "Klinik Kecantikan & Gigi (Beauty & Dental Clinic)";
-      if (
-        typeof knowledgeBaseId === "object" &&
-        knowledgeBaseId !== null &&
-        "clinicId" in knowledgeBaseId &&
-        knowledgeBaseId.clinicId
-      ) {
-        clinicName = getClinicNameById(knowledgeBaseId.clinicId);
-      }
-
-      return `You are acting as a customer support assistant for ${clinicName}, an Indonesian healthcare facility. You are chatting with patients/customers who need help with beauty treatments, dental services, appointments, pricing, and other clinic-related questions.
+      // clinicName, scopeGuard, clinicWhatsApp & clinicEmergency are resolved
+      // once at the outer scope (above) so the escalation examples can reuse them.
+      return `You are acting as a customer support assistant for ${clinicName}, an Indonesian healthcare facility. You are chatting with patients/customers who need help with beauty treatments, dental services, appointments, pricing, and other clinic-related questions.${scopeGuard}
 
   **Important Guidelines:**
   - Respond in the SAME LANGUAGE as the customer's question (Indonesian or English)
@@ -862,6 +980,7 @@ Kamu berbicara seperti teman yang hangat dan peduli — bukan mesin CS yang kaku
 
   **Response Rules:**
   - ONLY use information from the knowledge base provided above. Do not make up information about policies, prices, or procedures.
+  - NEVER speculate about anything not in the knowledge base. If a doctor's name, branch/location, treatment, brand, or price is not found, simply state it is not available in our system and direct the customer to CS. Do NOT guess that it "might be at another clinic", "might be a planned/upcoming branch", or any similar speculation — say nothing beyond "not available, please contact CS".
   - If the knowledge base doesn't contain relevant information, politely say you don't have that information and offer to connect them with a human agent.
   - If a question requires personal account access, order tracking with specific order numbers, or complex issues, redirect to a human agent.
   - For general questions about fashion, style tips, or product recommendations, you can provide helpful guidance.
@@ -1220,9 +1339,9 @@ Kamu berbicara seperti teman yang hangat dan peduli — bukan mesin CS yang kaku
   - Set redirect_to_agent.should_redirect = true with clear reason
 
   **Example redirect responses:**
-  - Complaint: "Maaf banget dengar itu kak 😔 Keluhan seperti ini perlu ditangani langsung oleh tim medis kami. Saya akan sambungkan Kakak ke tim customer service kami yang bisa bantu lebih lanjut. Sementara itu, hubungi WhatsApp kami di +62 812-8888-5555 untuk respon lebih cepat ya."
-  - Refund: "Saya mengerti kak. Untuk proses refund, tim customer service kami yang akan bantu. Saya sambungkan ke tim kami ya. Kakak juga bisa langsung hubungi +62 812-8888-5555."
-  - Medical: "Ini penting! 🚨 Untuk keluhan medis seperti ini, segera hubungi dokter kami di +62 811-9999-5555 (emergency hotline). Saya juga akan sambungkan Kakak ke tim medis kami."
+  - Complaint: "Maaf banget dengar itu kak 😔 Keluhan seperti ini perlu ditangani langsung oleh tim medis kami. Saya akan sambungkan Kakak ke tim customer service kami yang bisa bantu lebih lanjut. Sementara itu, hubungi WhatsApp kami di ${clinicWhatsApp} untuk respon lebih cepat ya."
+  - Refund: "Saya mengerti kak. Untuk proses refund, tim customer service kami yang akan bantu. Saya sambungkan ke tim kami ya. Kakak juga bisa langsung hubungi ${clinicWhatsApp}."
+  - Medical: "Ini penting! 🚨 Untuk keluhan medis seperti ini, segera hubungi dokter kami di ${clinicEmergency} (emergency hotline). Saya juga akan sambungkan Kakak ke tim medis kami."
 
   **IMPORTANT:** When in doubt about whether to redirect, ALWAYS redirect. It's better to redirect unnecessarily than to let a serious issue go unhandled by a human.
 
@@ -1371,7 +1490,7 @@ Kamu berbicara seperti teman yang hangat dan peduli — bukan mesin CS yang kaku
   Customer: "Treatment kemarin malah bikin kulit saya iritasi!"
   {
     "thinking": "Customer is complaining about treatment side effects - MUST redirect to human agent. Be empathetic first.",
-    "response": "Maaf banget dengar itu kak 😔 Keluhan seperti ini perlu ditangani langsung oleh tim medis kami.\n\nSaya akan sambungkan Kakak ke tim customer service yang bisa bantu lebih lanjut.\n\n📞 Untuk respon lebih cepat, hubungi:\n• WhatsApp: +62 812-8888-5555\n• Emergency: +62 811-9999-5555",
+    "response": "Maaf banget dengar itu kak 😔 Keluhan seperti ini perlu ditangani langsung oleh tim medis kami.\n\nSaya akan sambungkan Kakak ke tim customer service yang bisa bantu lebih lanjut.\n\n📞 Untuk respon lebih cepat, hubungi:\n• WhatsApp: ${clinicWhatsApp}\n• Emergency: ${clinicEmergency}",
     "user_mood": "frustrated",
     "suggested_questions": ["Hubungi customer service", "Nomor emergency klinik"],
     "debug": {
@@ -1388,7 +1507,7 @@ Kamu berbicara seperti teman yang hangat dan peduli — bukan mesin CS yang kaku
   Customer: "Saya mau refund pesanan saya"
   {
     "thinking": "Customer requesting refund - MUST redirect to human agent. Cannot process refunds as bot.",
-    "response": "Saya mengerti kak. Untuk proses refund, tim customer service kami yang akan bantu langsung.\n\nSaya sambungkan ke tim kami ya 🙏\n\n📞 Kakak juga bisa langsung hubungi:\n• WhatsApp: +62 812-8888-5555\n• Email: cs@glowclinic.id",
+    "response": "Saya mengerti kak. Untuk proses refund, tim customer service kami yang akan bantu langsung.\n\nSaya sambungkan ke tim kami ya 🙏\n\n📞 Kakak juga bisa langsung hubungi:\n• WhatsApp: ${clinicWhatsApp}",
     "user_mood": "negative",
     "suggested_questions": ["Hubungi customer service", "Kebijakan refund"],
     "debug": {
@@ -1405,7 +1524,7 @@ Kamu berbicara seperti teman yang hangat dan peduli — bukan mesin CS yang kaku
   Customer: "Tolong cancel appointment saya"
   {
     "thinking": "Customer wants to cancel appointment - redirect to human agent to handle properly.",
-    "response": "Baik kak, untuk pembatalan appointment akan saya sambungkan ke tim kami yang bisa bantu proses cancel dan pengembalian deposit (jika ada).\n\n📞 Untuk proses lebih cepat:\n• WhatsApp: +62 812-8888-5555",
+    "response": "Baik kak, untuk pembatalan appointment akan saya sambungkan ke tim kami yang bisa bantu proses cancel dan pengembalian deposit (jika ada).\n\n📞 Untuk proses lebih cepat:\n• WhatsApp: ${clinicWhatsApp}",
     "user_mood": "negative",
     "suggested_questions": ["Hubungi customer service", "Kebijakan pembatalan"],
     "debug": {
@@ -1935,17 +2054,25 @@ Kamu berbicara seperti teman yang hangat dan peduli — bukan mesin CS yang kaku
           })
         });
 
-        await addMessages(messagesToSave);
-        logger.info('Messages saved to database', { count: messagesToSave.length });
+        // A1: fire-and-forget persistence. DB writes are best-effort and must NOT
+        // block or slow the user response — Neon round-trips add ~5s per request
+        // and fail under concurrent cold-engine bursts. We don't await; failures
+        // are logged in the background instead of stalling the reply.
+        addMessages(messagesToSave)
+          .then(() =>
+            logger.info('Messages saved to database (background)', {
+              count: messagesToSave.length,
+            }),
+          )
+          .catch((e) => logger.error('Background message save failed', e));
 
-        // Update conversation metadata
-        await updateConversationMetadata(conversationIdForSave, {
+        // Update conversation metadata (also non-blocking)
+        updateConversationMetadata(conversationIdForSave, {
           userMood: validatedResponse.user_mood,
           categories: validatedResponse.matched_categories || [],
           contextUsed: validatedResponse.debug.context_used,
           // Don't set redirectReason and wasRedirected here - will be set by redirectConversation()
-        });
-        console.log("✅ Conversation metadata updated");
+        }).catch((e) => logger.error('Background metadata update failed', e));
 
         // ===== PHASE 4: Notify agent if redirect is needed =====
         console.log("🔍 DEBUG - redirect_to_agent:", JSON.stringify(responseWithId.redirect_to_agent));
@@ -2084,7 +2211,8 @@ Kamu berbicara seperti teman yang hangat dan peduli — bukan mesin CS yang kaku
     const inputTokens = response.usage?.input_tokens || 0;
     const outputTokens = response.usage?.output_tokens || 0;
 
-    responseCache.set(
+    // B2: don't cache follow-up answers (context-dependent — see cache check above)
+    if (!isFollowUpQuery) responseCache.set(
       clinicId,
       latestMessage,
       {

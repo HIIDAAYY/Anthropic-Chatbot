@@ -31,7 +31,7 @@ export interface RAGSource {
  */
 export async function retrieveContextFromPinecone(
   query: string,
-  n: number = 3,
+  n: number = 6,
   sourceFilter?: string | { kb: string; clinicId: string | null }, // Enhanced to support clinic-specific filtering
 ): Promise<{
   context: string;
@@ -194,6 +194,12 @@ export function detectKnowledgeBase(
 
   // CLINIC-SPECIFIC KEYWORDS (check first for specific clinic detection)
   const CLINIC_DETECTION_MAP: Record<string, string[]> = {
+    // DEMO (temporary) — Vorta Beauty Clinic
+    "vorta-clinic": [
+      "vorta",
+      "vorta beauty",
+      "vortabeautyclinic",
+    ],
     "glow-clinic": [
       "glow",
       "glow aesthetic",
@@ -476,7 +482,7 @@ export function detectKnowledgeBase(
 export async function retrieveContext(
   query: string,
   knowledgeBaseId?: string | { kb: string; clinicId: string | null },
-  n: number = 3,
+  n: number = 6,
 ): Promise<{
   context: string;
   isRagWorking: boolean;

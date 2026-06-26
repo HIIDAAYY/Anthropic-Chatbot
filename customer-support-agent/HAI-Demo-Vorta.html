@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>HAI Demo · Vorta Beauty Clinic</title>
+<style>
+  /* ===== Reset & layar luar (gelap) ===== */
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%;
+    background: #0a0f12;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #e9edef;
+  }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(1200px 600px at 50% -10%, #16212a 0%, #0a0f12 60%);
+  }
+
+  /* ===== Panel chat (mobile-friendly ~430px, tinggi penuh) ===== */
+  .phone {
+    position: relative;
+    width: 430px; max-width: 100%;
+    height: 100vh; max-height: 100vh;
+    display: flex; flex-direction: column;
+    background: #0b141a;
+    overflow: hidden;
+    box-shadow: 0 0 60px rgba(0,0,0,0.5);
+  }
+  @media (min-width: 470px) {
+    .phone { height: 92vh; border-radius: 16px; }
+  }
+
+  /* ===== Header ===== */
+  .header {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px;
+    background: #1f2c33;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    z-index: 5;
+  }
+  .avatar {
+    width: 42px; height: 42px; flex: 0 0 auto;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #9d4edd 0%, #7b2fb5 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 15px; letter-spacing: 0.5px;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(157,78,221,0.4);
+  }
+  .header-info { flex: 1 1 auto; min-width: 0; }
+  .header-info .name {
+    font-size: 16px; font-weight: 600; color: #e9edef;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .header-info .status {
+    font-size: 12px; color: #8aa0ab; margin-top: 1px;
+    display: flex; align-items: center; gap: 5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .header-info .status .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #25d366; flex: 0 0 auto;
+    box-shadow: 0 0 6px rgba(37,211,102,0.7);
+  }
+  .badge {
+    flex: 0 0 auto;
+    font-size: 11px; font-weight: 700;
+    padding: 5px 9px; border-radius: 20px;
+    background: rgba(157,78,221,0.18);
+    color: #c79bff;
+    border: 1px solid rgba(157,78,221,0.4);
+    white-space: nowrap;
+  }
+
+  /* ===== Area pesan ===== */
+  .messages {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 14px 12px 6px;
+    display: flex; flex-direction: column; gap: 8px;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(157,78,221,0.05) 0, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(0,92,75,0.06) 0, transparent 40%),
+      #0b141a;
+    scroll-behavior: smooth;
+  }
+  .messages::-webkit-scrollbar { width: 6px; }
+  .messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+
+  .row { display: flex; flex-direction: column; max-width: 82%; }
+  .row.user { align-self: flex-end; align-items: flex-end; }
+  .row.bot  { align-self: flex-start; align-items: flex-start; }
+
+  .escalate-label {
+    font-size: 11px; font-weight: 700;
+    color: #ffd24d;
+    background: rgba(255,210,77,0.12);
+    border: 1px solid rgba(255,210,77,0.35);
+    padding: 2px 8px; border-radius: 10px;
+    margin: 0 0 4px 4px;
+    align-self: flex-start;
+  }
+
+  .bubble {
+    position: relative;
+    padding: 7px 10px 8px;
+    border-radius: 10px;
+    font-size: 14.5px; line-height: 1.45;
+    word-wrap: break-word; white-space: pre-wrap;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.25);
+  }
+  .row.bot .bubble {
+    background: #202c33; color: #e9edef;
+    border-top-left-radius: 3px;
+  }
+  .row.user .bubble {
+    background: #005c4b; color: #e9edef;
+    border-top-right-radius: 3px;
+  }
+  .meta {
+    display: flex; align-items: center; gap: 3px;
+    justify-content: flex-end;
+    font-size: 10.5px; color: rgba(233,237,239,0.55);
+    margin-top: 3px; margin-left: 14px; float: right;
+  }
+  .meta .ticks { color: #53bdeb; font-size: 12px; line-height: 1; }
+
+  .bubble::after { content: ""; display: block; clear: both; }
+
+  /* ===== Indikator typing ===== */
+  .typing {
+    align-self: flex-start;
+    background: #202c33;
+    border-radius: 10px; border-top-left-radius: 3px;
+    padding: 11px 14px;
+    display: inline-flex; gap: 4px; align-items: center;
+  }
+  .typing span {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #8aa0ab;
+    animation: blink 1.3s infinite ease-in-out both;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.18s; }
+  .typing span:nth-child(3) { animation-delay: 0.36s; }
+  @keyframes blink {
+    0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+    40% { opacity: 1; transform: translateY(-3px); }
+  }
+
+  /* ===== Quick reply chips ===== */
+  .chips {
+    flex: 0 0 auto;
+    display: flex; gap: 8px;
+    padding: 8px 12px;
+    overflow-x: auto;
+    background: #0b141a;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+  .chips::-webkit-scrollbar { height: 0; }
+  .chip {
+    flex: 0 0 auto;
+    font-size: 13px;
+    padding: 7px 13px;
+    border-radius: 18px;
+    background: rgba(157,78,221,0.12);
+    color: #c79bff;
+    border: 1px solid rgba(157,78,221,0.35);
+    cursor: pointer; white-space: nowrap;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .chip:hover { background: rgba(157,78,221,0.22); }
+  .chip:active { transform: scale(0.96); }
+
+  /* ===== Input bar ===== */
+  .inputbar {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
+    background: #1f2c33;
+  }
+  .inputbar input {
+    flex: 1 1 auto;
+    border: none; outline: none;
+    background: #2a3942;
+    color: #e9edef;
+    font-size: 15px;
+    padding: 11px 15px;
+    border-radius: 22px;
+  }
+  .inputbar input::placeholder { color: #8aa0ab; }
+  .send-btn {
+    flex: 0 0 auto;
+    width: 44px; height: 44px; border-radius: 50%;
+    border: none; cursor: pointer;
+    background: linear-gradient(135deg, #9d4edd 0%, #7b2fb5 100%);
+    color: #fff; font-size: 19px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 10px rgba(157,78,221,0.45);
+    transition: transform 0.1s;
+  }
+  .send-btn:active { transform: scale(0.92); }
+
+  /* ===== Sub-bar: indikator melayani banyak chat sekaligus ===== */
+  .subbar {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 7px;
+    padding: 6px 14px;
+    font-size: 12px; color: #a9d6b8;
+    background: rgba(37,211,102,0.07);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .subbar .live {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #25d366; flex: 0 0 auto;
+    box-shadow: 0 0 6px rgba(37,211,102,0.8);
+    animation: livepulse 1.6s infinite;
+  }
+  @keyframes livepulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .subbar b { color: #d6f5e0; font-weight: 700; }
+
+  /* ===== Stempel kecepatan balasan bot ===== */
+  .speed {
+    font-size: 10.5px; color: #c79bff;
+    margin: 2px 0 0 4px;
+  }
+
+  /* ===== Kartu "Lead Tersimpan" ===== */
+  .lead-card {
+    align-self: center;
+    width: 92%;
+    margin: 4px 0;
+    padding: 11px 13px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(0,92,75,0.35), rgba(37,211,102,0.12));
+    border: 1px solid rgba(37,211,102,0.45);
+    box-shadow: 0 2px 14px rgba(37,211,102,0.18);
+    animation: pop 0.25s ease-out;
+  }
+  .lead-card .lc-head {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 13.5px; font-weight: 800; color: #b9f6ce;
+    margin-bottom: 4px;
+  }
+  .lead-card .lc-body { font-size: 12.5px; color: #cfe9d8; line-height: 1.5; }
+  .lead-card .lc-foot {
+    font-size: 11px; color: #8fb9a0; margin-top: 6px;
+  }
+
+  .row, .typing { animation: pop 0.18s ease-out; }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="header">
+      <div class="avatar">HAI</div>
+      <div class="header-info">
+        <div class="name" id="clinicName">Vorta Beauty Clinic</div>
+        <div class="status"><span class="dot"></span><span>online · dijawab otomatis oleh HAI</span></div>
+      </div>
+      <div class="badge">⚡ HAI AI</div>
+    </div>
+
+    <div class="subbar"><span class="live"></span><span>HAI sedang melayani <b id="liveCount">4</b> chat lain sekaligus</span></div>
+
+    <div class="messages" id="messages"></div>
+
+    <div class="chips" id="chips"></div>
+
+    <div class="inputbar">
+      <input id="input" type="text" placeholder="Ketik pesan…" autocomplete="off" />
+      <button class="send-btn" id="sendBtn" aria-label="Kirim">➤</button>
+    </div>
+  </div>
+
+<script>
+/* =====================================================================
+   DATA KLINIK — edit bagian ini saja untuk klinik lain.
+   ===================================================================== */
+
+/* Identitas klinik + teks-teks utama */
+const CLINIC = {
+  name: "Vorta Beauty Clinic",              // tampil di header
+  // Pesan sapaan otomatis saat chat dibuka
+  greeting: "Halo kak 👋 Selamat datang di Vorta Beauty Clinic. Saya asisten AI Vorta, siap bantu soal harga treatment, cabang, jadwal, sampai booking — instan 24 jam. Ada yang bisa dibantu? 😊",
+  // 5 quick-reply chips (pertanyaan contoh yang bisa diklik)
+  chips: [
+    "Harga peeling berapa?",
+    "Ada cabang dimana aja?",
+    "Beda Laser sama IPL apa?",
+    "Jam buka kapan?",
+    "Mau booking dong"
+  ],
+  // Jawaban fallback ketika tidak ada intent yang cocok (auto-escalate)
+  escalate: "Pertanyaan ini saya teruskan ke tim dokter Vorta biar akurat ya kak 🙏 Sementara, ada lagi yang bisa saya bantu?",
+  // Kata kunci yang memicu kartu "Lead Tersimpan" (niat booking/daftar)
+  leadKeywords: ["booking", "daftar", "reservasi", "pesan", "slot", "daftarkan"]
+};
+
+/* Daftar intent: tiap entri = { keywords:[...], reply:"..." }.
+   Engine mencocokkan teks user (huruf kecil, .includes) dengan keywords.
+   Urutan penting: yang lebih spesifik taruh lebih atas bila perlu. */
+const INTENTS = [
+  {
+    keywords: ["beda", "perbedaan", "laser vs ipl", "vs"],
+    reply: "Singkatnya kak: IPL lebih lembut untuk glowing & kemerahan ringan (mulai Rp699rb), sedangkan Laser Q-Switched lebih kuat untuk flek & peremajaan (mulai Rp1.299rb). Mau saya bantu pilih sesuai kondisi kulit kakak?"
+  },
+  {
+    keywords: ["harga", "biaya", "peeling", "laser", "ipl", "infus", "berapa", "tarif"],
+    reply: "Beberapa harga populer di Vorta kak:\n• Peeling Glowing Rp999rb, Peeling Jerawat/Flek/Bopeng Rp799rb\n• Laser Glowing/Flek Rp1.299rb, Laser Complete Rp1.499rb, Acne Laser Rp2.999rb\n• IPL (Glowing/Jerawat/Flek) Rp699rb\n• Infus Glowing Rp1.299rb, Infus Vorta Rp2.499rb\nSemua ada paket Beli 5 Gratis 1, plus gratis konsultasi dokter + skin analyzer. Mau saya rekomendasikan yang cocok buat kebutuhan kakak?"
+  },
+  {
+    keywords: ["cabang", "lokasi", "alamat", "dimana", "di mana", "maps"],
+    reply: "Vorta punya 6 cabang kak: Palembang, PIK, Kelapa Gading, Kemang, Bandung, dan Gading Serpong. Kakak paling dekat ke mana? Saya kirim alamat lengkap + share-loc-nya."
+  },
+  {
+    keywords: ["jam", "buka", "jadwal", "libur", "tutup", "operasional"],
+    reply: "Vorta buka setiap hari (365 hari) jam 09.00–21.00 kak. Mau datang hari apa?"
+  },
+  {
+    keywords: ["booking", "daftar", "reservasi", "pesan", "slot"],
+    reply: "Siap kak! Booking via WA resmi Vorta 0811-8883-318, atau sebutkan di sini: nama, treatment, cabang, dan tanggal/jam. Saya amankan slotnya 📅"
+  },
+  {
+    keywords: ["promo", "diskon", "payday", "sale", "referral"],
+    reply: "Lagi ada PAYDAY SALE kak 🎉 plus potongan Rp50rb pakai referral code (min. belanja Rp500rb), dan bonus khusus pasien baru. Mau saya daftarkan?"
+  },
+  {
+    keywords: ["cicilan", "bayar", "pembayaran", "installment"],
+    reply: "Untuk metode pembayaran & cicilan, saya cek dulu yang berlaku di cabang pilihan kakak ya. Mau saya bantu hubungkan?"
+  },
+  {
+    keywords: ["konsultasi", "dokter", "skin analyzer", "analisa"],
+    reply: "Konsultasi dokter + skin analyzer GRATIS kak sebelum treatment. Mau saya jadwalkan?"
+  }
+];
+
+/* =====================================================================
+   ENGINE — sama untuk semua klinik, tidak perlu diubah.
+   ===================================================================== */
+
+const messagesEl = document.getElementById("messages");
+const chipsEl    = document.getElementById("chips");
+const inputEl    = document.getElementById("input");
+const sendBtn    = document.getElementById("sendBtn");
+document.getElementById("clinicName").textContent = CLINIC.name;
+document.title = "HAI Demo · " + CLINIC.name;
+
+/* Indikator "melayani banyak chat sekaligus": angka berfluktuasi natural */
+const liveCountEl = document.getElementById("liveCount");
+setInterval(() => {
+  const cur = parseInt(liveCountEl.textContent, 10) || 4;
+  let next = cur + (Math.random() < 0.5 ? -1 : 1);
+  if (next < 3) next = 3;
+  if (next > 7) next = 7;
+  liveCountEl.textContent = next;
+}, 3500);
+
+let busy = false; // cegah spam saat bot sedang "mengetik"
+
+/* Jam saat ini -> "HH:MM" */
+function now() {
+  const d = new Date();
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+
+function scrollDown() {
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+/* Tambah bubble. who = "user" | "bot". escalate=true menampilkan label kuning. */
+function addBubble(text, who, escalate, speed) {
+  const row = document.createElement("div");
+  row.className = "row " + who;
+
+  if (escalate) {
+    const label = document.createElement("div");
+    label.className = "escalate-label";
+    label.textContent = "↪ auto-escalate ke admin";
+    row.appendChild(label);
+  }
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.textContent = text;
+
+  const meta = document.createElement("span");
+  meta.className = "meta";
+  meta.innerHTML = now() + (who === "user" ? ' <span class="ticks">✓✓</span>' : "");
+  bubble.appendChild(meta);
+
+  row.appendChild(bubble);
+
+  // Stempel kecepatan (hanya untuk balasan bot ke pesan user)
+  if (speed) {
+    const sp = document.createElement("div");
+    sp.className = "speed";
+    sp.textContent = "⚡ dibalas dalam " + speed + " dtk";
+    row.appendChild(sp);
+  }
+
+  messagesEl.appendChild(row);
+  scrollDown();
+}
+
+/* Tampilkan indikator typing, kembalikan elemennya supaya bisa dihapus */
+function showTyping() {
+  const t = document.createElement("div");
+  t.className = "typing";
+  t.innerHTML = "<span></span><span></span><span></span>";
+  messagesEl.appendChild(t);
+  scrollDown();
+  return t;
+}
+
+/* Cocokkan teks user ke INTENTS -> {reply, escalate} */
+function findReply(text) {
+  const q = text.toLowerCase();
+  for (const intent of INTENTS) {
+    if (intent.keywords.some(k => q.includes(k))) {
+      return { reply: intent.reply, escalate: false };
+    }
+  }
+  return { reply: CLINIC.escalate, escalate: true };
+}
+
+/* Alur balasan bot: typing -> bubble */
+function botReply(text, delay) {
+  busy = true;
+  const typing = showTyping();
+  setTimeout(() => {
+    typing.remove();
+    const { reply, escalate } = findReply(text);
+    const speed = (1.4 + Math.random() * 0.9).toFixed(1).replace(".", ","); // ~1,4–2,3 dtk
+    addBubble(reply, "bot", escalate, speed);
+    maybeShowLead(text);
+    busy = false;
+  }, delay);
+}
+
+/* Kartu "Lead Tersimpan": muncul sekali saat user menyentuh niat booking/daftar */
+let leadShown = false;
+function maybeShowLead(text) {
+  if (leadShown) return;
+  const q = text.toLowerCase();
+  if (!CLINIC.leadKeywords.some(k => q.includes(k))) return;
+  leadShown = true;
+  setTimeout(() => {
+    const card = document.createElement("div");
+    card.className = "lead-card";
+    card.innerHTML =
+      '<div class="lc-head">🎯 Lead Baru Tertangkap</div>' +
+      '<div class="lc-body">Percakapan ini otomatis tercatat sebagai calon pasien & diteruskan ke admin ' + CLINIC.name + '. Tim CS tinggal lanjut follow-up — tanpa ada chat yang terlewat.</div>' +
+      '<div class="lc-foot">✅ Tersimpan · diteruskan ke admin · baru saja</div>';
+    messagesEl.appendChild(card);
+    scrollDown();
+  }, 650);
+}
+
+/* Kirim pesan user */
+function sendMessage(text) {
+  text = (text || "").trim();
+  if (!text || busy) return;
+  addBubble(text, "user", false);
+  inputEl.value = "";
+  botReply(text, 1400); // ~1,4 detik: cepat tapi natural
+}
+
+/* Render quick-reply chips */
+CLINIC.chips.forEach(text => {
+  const chip = document.createElement("button");
+  chip.className = "chip";
+  chip.textContent = text;
+  chip.addEventListener("click", () => sendMessage(text));
+  chipsEl.appendChild(chip);
+});
+
+/* Event input */
+sendBtn.addEventListener("click", () => sendMessage(inputEl.value));
+inputEl.addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); sendMessage(inputEl.value); }
+});
+
+/* Greeting otomatis saat dibuka: typing ~1 detik lalu sapaan */
+window.addEventListener("load", () => {
+  busy = true;
+  const typing = showTyping();
+  setTimeout(() => {
+    typing.remove();
+    addBubble(CLINIC.greeting, "bot", false);
+    busy = false;
+    inputEl.focus();
+  }, 1000);
+});
+</script>
+</body>
+</html>
